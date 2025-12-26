@@ -15,6 +15,7 @@ package com.curso.android.module5.aichef.domain.model
  * - ingredients: Lista de ingredientes detectados
  * - steps: Pasos de preparación
  * - imageUri: URI de la imagen original (opcional)
+ * - generatedImageUrl: URL de la imagen del plato generada por IA (cache en Storage)
  * - createdAt: Timestamp de creación
  *
  * =============================================================================
@@ -26,6 +27,7 @@ data class Recipe(
     val ingredients: List<String> = emptyList(),
     val steps: List<String> = emptyList(),
     val imageUri: String = "",
+    val generatedImageUrl: String = "",
     val createdAt: Long = System.currentTimeMillis()
 ) {
     /**
@@ -42,6 +44,7 @@ data class Recipe(
         "ingredients" to ingredients,
         "steps" to steps,
         "imageUri" to imageUri,
+        "generatedImageUrl" to generatedImageUrl,
         "createdAt" to createdAt
     )
 
@@ -62,6 +65,7 @@ data class Recipe(
                 ingredients = (data["ingredients"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 steps = (data["steps"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 imageUri = data["imageUri"] as? String ?: "",
+                generatedImageUrl = data["generatedImageUrl"] as? String ?: "",
                 createdAt = (data["createdAt"] as? Long) ?: System.currentTimeMillis()
             )
         }

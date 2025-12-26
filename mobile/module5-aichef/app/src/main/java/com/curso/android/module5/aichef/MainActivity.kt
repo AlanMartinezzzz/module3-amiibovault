@@ -19,6 +19,7 @@ import com.curso.android.module5.aichef.domain.model.AuthState
 import com.curso.android.module5.aichef.ui.screens.AuthScreen
 import com.curso.android.module5.aichef.ui.screens.GeneratorScreen
 import com.curso.android.module5.aichef.ui.screens.HomeScreen
+import com.curso.android.module5.aichef.ui.screens.RecipeDetailScreen
 import com.curso.android.module5.aichef.ui.theme.AiChefTheme
 import com.curso.android.module5.aichef.ui.viewmodel.ChefViewModel
 
@@ -77,6 +78,9 @@ object NavRoutes {
     const val AUTH = "auth"
     const val HOME = "home"
     const val GENERATOR = "generator"
+    const val RECIPE_DETAIL = "recipe_detail/{recipeId}"
+
+    fun recipeDetail(recipeId: String) = "recipe_detail/$recipeId"
 }
 
 /**
@@ -149,6 +153,9 @@ fun AiChefNavigation() {
                 onNavigateToGenerator = {
                     navController.navigate(NavRoutes.GENERATOR)
                 },
+                onNavigateToDetail = { recipeId ->
+                    navController.navigate(NavRoutes.recipeDetail(recipeId))
+                },
                 onLogout = {
                     // Navegar a Auth y limpiar el back stack
                     navController.navigate(NavRoutes.AUTH) {
@@ -167,6 +174,18 @@ fun AiChefNavigation() {
                 },
                 onRecipeGenerated = {
                     // Volver al Home después de generar
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Pantalla de detalle de receta
+        composable(NavRoutes.RECIPE_DETAIL) { backStackEntry ->
+            val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
+            RecipeDetailScreen(
+                viewModel = viewModel,
+                recipeId = recipeId,
+                onNavigateBack = {
                     navController.popBackStack()
                 }
             )

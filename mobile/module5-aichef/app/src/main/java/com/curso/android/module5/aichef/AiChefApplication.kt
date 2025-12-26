@@ -1,6 +1,10 @@
 package com.curso.android.module5.aichef
 
 import android.app.Application
+import com.google.firebase.Firebase
+import com.google.firebase.appcheck.appCheck
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import com.google.firebase.initialize
 
 /**
  * =============================================================================
@@ -21,10 +25,9 @@ import android.app.Application
  * 2. Firebase App Check: Verifica que las requests vienen de tu app
  * 3. Reglas de Firestore/Storage: Control de acceso a datos
  *
- * Para habilitar App Check (recomendado en producción):
- * 1. Ve a Firebase Console > App Check
- * 2. Registra tu app con Play Integrity (Android)
- * 3. Habilita enforcement para AI Logic
+ * IMPORTANTE: Firebase AI Logic REQUIERE App Check habilitado.
+ * En desarrollo usamos DebugAppCheckProviderFactory.
+ * En producción usar PlayIntegrityAppCheckProviderFactory.
  *
  * =============================================================================
  */
@@ -33,17 +36,17 @@ class AiChefApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Firebase se inicializa automáticamente via google-services.json
-        // No es necesario código adicional aquí
+        // Inicializar Firebase
+        Firebase.initialize(this)
+
+        // Configurar App Check con Debug Provider para desarrollo
+        // IMPORTANTE: Firebase AI Logic requiere App Check
+        Firebase.appCheck.installAppCheckProviderFactory(
+            DebugAppCheckProviderFactory.getInstance()
+        )
 
         // Guardar referencia para uso global (opcional)
         instance = this
-
-        // Aquí podrías inicializar:
-        // - Firebase App Check para seguridad adicional
-        // - Crashlytics para reportes de errores
-        // - Analytics para métricas
-        // - Timber para logging en desarrollo
     }
 
     companion object {

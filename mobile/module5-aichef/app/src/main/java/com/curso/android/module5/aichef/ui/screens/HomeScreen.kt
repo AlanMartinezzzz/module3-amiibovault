@@ -66,6 +66,7 @@ import java.util.Locale
 fun HomeScreen(
     viewModel: ChefViewModel,
     onNavigateToGenerator: () -> Unit,
+    onNavigateToDetail: (String) -> Unit,
     onLogout: () -> Unit
 ) {
     // Observar lista de recetas
@@ -126,7 +127,10 @@ fun HomeScreen(
                     items = recipes,
                     key = { it.id } // Clave única para optimización
                 ) { recipe ->
-                    RecipeCard(recipe = recipe)
+                    RecipeCard(
+                        recipe = recipe,
+                        onClick = { onNavigateToDetail(recipe.id) }
+                    )
                 }
             }
         }
@@ -136,14 +140,19 @@ fun HomeScreen(
 /**
  * Card para mostrar una receta individual
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RecipeCard(recipe: Recipe) {
+private fun RecipeCard(
+    recipe: Recipe,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
-        )
+        ),
+        onClick = onClick
     ) {
         Column(
             modifier = Modifier

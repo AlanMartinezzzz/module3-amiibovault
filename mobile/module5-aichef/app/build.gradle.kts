@@ -113,6 +113,9 @@ dependencies {
     // Cloud Firestore - Base de datos NoSQL
     implementation(libs.firebase.firestore)
 
+    // Firebase Storage - Almacenamiento de archivos (cache de imágenes generadas)
+    implementation(libs.firebase.storage)
+
     // ==========================================================================
     // FIREBASE AI LOGIC - EL NUEVO SDK UNIFICADO (2025)
     // ==========================================================================
@@ -133,6 +136,9 @@ dependencies {
     // - com.google.ai.client.generativeai (cliente directo, deprecado)
     // ==========================================================================
     implementation(libs.firebase.ai)
+
+    // Firebase App Check - Debug provider para desarrollo
+    debugImplementation(libs.firebase.appcheck.debug)
 
     // =========================================================================
     // COIL - Carga de imágenes

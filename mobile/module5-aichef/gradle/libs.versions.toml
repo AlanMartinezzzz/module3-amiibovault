@@ -96,6 +96,12 @@ firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore
 # =============================================================================
 firebase-ai = { group = "com.google.firebase", name = "firebase-ai" }
 
+# Firebase App Check - Para verificación de la app
+firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug" }
+
+# Firebase Storage - Almacenamiento de archivos (imágenes generadas)
+firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
+
 # Navigation
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
@@ -138,7 +144,8 @@ compose = [
 firebase = [
     "firebase-auth",
     "firebase-firestore",
-    "firebase-ai"
+    "firebase-ai",
+    "firebase-storage"
 ]
 
 # Bundle de Lifecycle

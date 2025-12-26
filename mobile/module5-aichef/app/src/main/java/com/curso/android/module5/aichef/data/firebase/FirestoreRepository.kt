@@ -172,4 +172,26 @@ class FirestoreRepository {
             Result.failure(Exception("Error eliminando receta: ${e.message}"))
         }
     }
+
+    /**
+     * Actualiza la URL de la imagen generada de una receta
+     *
+     * CONCEPTO: update() para campos específicos
+     * update() permite modificar campos específicos sin reescribir
+     * todo el documento. Más eficiente que set() para cambios parciales.
+     *
+     * @param recipeId ID del documento
+     * @param imageUrl URL de la imagen en Firebase Storage
+     * @return Result indicando éxito o error
+     */
+    suspend fun updateGeneratedImageUrl(recipeId: String, imageUrl: String): Result<Unit> {
+        return try {
+            recipesCollection.document(recipeId)
+                .update("generatedImageUrl", imageUrl)
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Error actualizando imagen: ${e.message}"))
+        }
+    }
 }

@@ -8,16 +8,18 @@ AI Chef es una aplicación educativa que demuestra la integración de la suite m
 - **Firebase Auth**: Autenticación de usuarios con email/password
 - **Cloud Firestore**: Base de datos NoSQL en tiempo real
 - **Firebase AI Logic**: El nuevo SDK unificado (2025) para acceder a modelos Gemini
+  - Generación de recetas a partir de imágenes de ingredientes
+  - Generación de imágenes del plato terminado con IA
 
 ## Arquitectura
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        UI LAYER                              │
-│  ┌─────────────┐    ┌──────────────┐    ┌──────────────┐   │
-│  │ AuthScreen  │    │  HomeScreen  │    │GeneratorScreen│   │
-│  └──────┬──────┘    └──────┬───────┘    └──────┬───────┘   │
-│         └─────────────────┬─────────────────────┘           │
+│  ┌───────────┐ ┌──────────┐ ┌─────────────┐ ┌────────────┐ │
+│  │AuthScreen │ │HomeScreen│ │GeneratorScr.│ │DetailScreen│ │
+│  └─────┬─────┘ └────┬─────┘ └──────┬──────┘ └─────┬──────┘ │
+│        └────────────┴──────────────┴──────────────┘         │
 │                           ▼                                  │
 │                   ┌──────────────┐                           │
 │                   │ ChefViewModel │                          │
@@ -26,21 +28,21 @@ AI Chef es una aplicación educativa que demuestra la integración de la suite m
                            │
 ┌──────────────────────────┼───────────────────────────────────┐
 │                          ▼              DATA LAYER           │
-│     ┌─────────────────────────────────────────────────┐     │
-│     │              REPOSITORIES                        │     │
-│     ├─────────────┬───────────────┬───────────────────┤     │
-│     │ AuthRepo    │ FirestoreRepo │ AiLogicDataSource │     │
-│     └──────┬──────┴───────┬───────┴─────────┬─────────┘     │
-│            ▼              ▼                  ▼               │
-│     ┌──────────┐   ┌──────────┐      ┌─────────────┐        │
-│     │  Firebase │   │ Cloud    │      │ Firebase AI │        │
-│     │   Auth   │   │ Firestore│      │   Logic    │        │
-│     └──────────┘   └──────────┘      │  (Gemini)  │        │
-│                                       └─────────────┘        │
-└──────────────────────────────────────────────────────────────┘
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                   REPOSITORIES                        │   │
+│  ├──────────┬─────────────┬─────────────┬───────────────┤   │
+│  │ AuthRepo │FirestoreRepo│ StorageRepo │AiLogicDataSrc │   │
+│  └────┬─────┴──────┬──────┴──────┬──────┴───────┬───────┘   │
+│       ▼            ▼             ▼               ▼          │
+│  ┌────────┐  ┌──────────┐  ┌──────────┐  ┌─────────────┐   │
+│  │Firebase│  │  Cloud   │  │ Firebase │  │ Firebase AI │   │
+│  │  Auth  │  │ Firestore│  │ Storage  │  │   Logic     │   │
+│  └────────┘  └──────────┘  └──────────┘  │  (Gemini)   │   │
+│                                           └─────────────┘   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Configuración Inicial (CRÍTICO)
+## Configuración Inicial (IMPORTANTE)
 
 ### Paso 1: Crear Proyecto en Firebase Console
 
@@ -85,27 +87,30 @@ keytool -list -v -keystore "%USERPROFILE%\.android\debug.keystore" -alias androi
 
 ### Paso 5: Configurar Cloud Firestore
 
+#### 5.1 Crear la Base de Datos
+
 1. Ve a **Build > Firestore Database**
 2. Click en **"Crear base de datos"**
 3. Selecciona modo de **producción** o **prueba**
 4. Selecciona ubicación del servidor (ej: `us-central1`)
-5. Configura las reglas de seguridad:
+
+#### 5.2 Configurar Reglas de Seguridad
+
+Ve a la pestaña **Rules** y configura:
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Colección de recetas
     match /recipes/{recipeId} {
-      // Solo usuarios autenticados pueden leer sus propias recetas
-      allow read: if request.auth != null
-                  && request.auth.uid == resource.data.userId;
+      // Leer: usuarios autenticados (el filtro por userId se aplica en el código)
+      allow read: if request.auth != null;
 
-      // Solo usuarios autenticados pueden crear recetas con su userId
+      // Crear: usuario autenticado con su propio userId
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.userId;
 
-      // Solo el propietario puede actualizar/eliminar
+      // Actualizar/Eliminar: solo el propietario
       allow update, delete: if request.auth != null
                             && request.auth.uid == resource.data.userId;
     }
@@ -113,9 +118,106 @@ service cloud.firestore {
 }
 ```
 
-### Paso 6: Habilitar Firebase AI Logic (IMPORTANTE)
+> **Nota**: La regla de lectura permite a usuarios autenticados leer, pero el código del cliente filtra por `userId`. Esto es necesario porque Firestore no puede evaluar `resource.data` en queries antes de ejecutarlos.
 
-1. Ve a **AI > AI Logic** 
+#### 5.3 Crear Índice Compuesto (IMPORTANTE)
+
+La app usa un query que combina filtro + ordenamiento:
+```kotlin
+.whereEqualTo("userId", uid)
+.orderBy("createdAt", Direction.DESCENDING)
+```
+
+Firestore requiere un **índice compuesto** para este tipo de queries:
+
+1. Ve a **Firestore Database > Indexes**
+2. Click en **"Create index"** o **"Add index"**
+3. Configura:
+   - **Collection ID**: `recipes`
+   - **Fields**:
+     - `userId` - Ascending
+     - `createdAt` - Descending
+4. Click en **"Create"**
+
+El índice tardará unos minutos en crearse (estado "Building...").
+
+> **Alternativa**: Si ejecutas la app sin el índice, Firestore mostrará un error en Logcat con un enlace directo para crear el índice automáticamente.
+
+### Paso 6: Configurar Firebase Storage (Cache de Imágenes)
+
+Firebase Storage se usa para almacenar las imágenes generadas por IA, evitando regenerarlas en cada visualización.
+
+> **⚠️ IMPORTANTE: Firebase Storage requiere el plan Blaze (pay-as-you-go)**
+>
+> A diferencia de Auth y Firestore que tienen generosos límites gratuitos, Storage requiere habilitar facturación. Sin embargo, los costos son muy bajos para uso educativo (centavos por GB).
+
+#### 6.1 Habilitar Billing (Plan Blaze)
+
+1. En Firebase Console, click en **⚙️ Configuración del proyecto** (engranaje)
+2. Ve a la pestaña **Uso y facturación** o **Usage and billing**
+3. Click en **Detalles y configuración** o **Details & settings**
+4. Click en **Modificar plan** o **Modify plan**
+5. Selecciona **Blaze (pay as you go)**
+6. Vincula o crea una cuenta de Google Cloud Billing
+7. Confirma el cambio de plan
+
+**Costos aproximados de Storage:**
+| Recurso | Costo |
+|---------|-------|
+| Almacenamiento | $0.026/GB/mes |
+| Descarga | $0.12/GB |
+| Operaciones | $0.05/10,000 |
+
+> **Tip**: Para proyectos educativos, los costos suelen ser menores a $1/mes. Puedes configurar alertas de presupuesto en Google Cloud Console.
+
+#### 6.2 Crear el Bucket de Storage
+
+1. Ve a **Build > Storage**
+2. Click en **"Get started"** o **"Comenzar"**
+3. Selecciona el modo de seguridad (empezar en modo de prueba está bien)
+4. Selecciona la ubicación del bucket (misma región que Firestore)
+
+#### 6.3 Configurar Reglas de Seguridad
+
+Ve a la pestaña **Rules** y configura:
+
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Carpeta de imágenes de recetas
+    match /recipe_images/{imageId} {
+      // Leer: usuarios autenticados
+      allow read: if request.auth != null;
+
+      // Escribir: usuarios autenticados (máximo 5MB)
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
+```
+
+**Conceptos clave de las reglas:**
+- `request.auth != null`: Solo usuarios autenticados
+- `request.resource.size`: Limita tamaño máximo del archivo
+- `contentType.matches('image/.*')`: Solo permite archivos de imagen
+
+#### 6.4 Habilitar App Check para Storage
+
+Para mayor seguridad, habilita App Check en Storage:
+
+1. Ve a **Build > App Check**
+2. En la pestaña **APIs**, busca **Cloud Storage**
+3. Click en **Enforce** o **Aplicar**
+4. Confirma la activación
+
+> **Nota**: Después de habilitar App Check en Storage, solo las apps verificadas podrán acceder. Asegúrate de tener el Debug Token configurado (ver Paso 8).
+
+### Paso 7: Habilitar Firebase AI Logic 
+
+1. Ve a **Build > AI Logic** o **AI > AI Logic** 
 2. Click en **"Comenzar"** o **"Get started"**
 3. Selecciona el **Gemini API provider**:
    - **Gemini Developer API**: Recomendado para empezar (gratis con límites)
@@ -125,15 +227,50 @@ service cloud.firestore {
 
 > **Nota**: Firebase AI Logic NO requiere que agregues API Keys en tu código. La autenticación se maneja a través de `google-services.json` y Firebase App Check.
 
-### Paso 7 (Opcional): Habilitar Firebase App Check
+### Paso 8: Configurar Firebase App Check 
 
-Para seguridad adicional en producción:
+Firebase AI Logic **requiere** App Check habilitado. Sigue estos pasos:
+
+#### 8.1 Registrar la App en Firebase Console
 
 1. Ve a **Build > App Check**
-2. Registra tu app con **Play Integrity** (Android)
-3. En la sección **APIs**, habilita enforcement para:
-   - Cloud Firestore
-   - Firebase AI Logic
+2. Click en **"Get started"** o **"Comenzar"**
+3. En la pestaña **Apps**, busca tu app Android
+4. Click en **Register** y selecciona **Debug provider**
+5. Confirma el registro
+
+#### 8.2 Obtener el Debug Token
+
+1. Ejecuta la app en el emulador o dispositivo
+2. Abre **Logcat** en Android Studio
+3. Filtra por `DebugAppCheckProvider`
+4. Busca un mensaje como:
+   ```
+   D DebugAppCheckProvider: Enter this debug secret into the allow list:
+   XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+   ```
+5. Copia el token (formato UUID)
+
+#### 8.3 Registrar el Debug Token
+
+1. En Firebase Console, ve a **Build > App Check > Apps**
+2. Click en los **3 puntos** (⋮) junto a tu app
+3. Selecciona **Manage debug tokens**
+4. Click en **Add debug token**
+5. Pega el token copiado del Logcat
+6. Click en **Save**
+
+#### 8.4 Reiniciar la App
+
+Después de registrar el token, reinicia la app. Firebase AI Logic ahora funcionará correctamente.
+
+> **Nota**: Cada emulador/dispositivo genera un token único. Si cambias de dispositivo, deberás registrar un nuevo token.
+
+#### Para Producción
+
+En producción, reemplaza el Debug Provider por **Play Integrity**:
+1. En App Check, registra la app con **Play Integrity**
+2. En el código, usa `PlayIntegrityAppCheckProviderFactory` en lugar de `DebugAppCheckProviderFactory`
 
 ## Estructura del Proyecto
 
@@ -147,7 +284,8 @@ app/src/main/java/com/curso/android/module5/aichef/
 │   │   └── AiLogicDataSource.kt  # Firebase AI Logic (Gemini)
 │   └── firebase/
 │       ├── AuthRepository.kt     # Firebase Auth wrapper
-│       └── FirestoreRepository.kt # Firestore wrapper
+│       ├── FirestoreRepository.kt # Firestore wrapper
+│       └── StorageRepository.kt  # Firebase Storage (cache de imágenes)
 │
 ├── domain/
 │   └── model/
@@ -160,7 +298,8 @@ app/src/main/java/com/curso/android/module5/aichef/
     ├── screens/
     │   ├── AuthScreen.kt         # Login/Registro
     │   ├── HomeScreen.kt         # Lista de recetas
-    │   └── GeneratorScreen.kt    # Generador con IA
+    │   ├── GeneratorScreen.kt    # Generador con IA
+    │   └── RecipeDetailScreen.kt # Detalle + imagen generada
     └── theme/
         └── Theme.kt              # Material 3 Theme
 ```
@@ -203,9 +342,44 @@ val text = response.text
 
 | Modelo | Descripción | Caso de uso |
 |--------|-------------|-------------|
-| `gemini-3-flash-preview` | Rápido y eficiente | Producción general (usado en este proyecto) |
+| `gemini-3-flash-preview` | Rápido y eficiente | Análisis de imágenes, generación de texto |
+| `gemini-3-pro-image-preview` | Generación de imágenes | Crear imágenes del plato terminado |
 | `gemini-3-pro-preview` | El más avanzado | Tareas complejas |
-| `gemini-2.5-flash` | Versión estable anterior | Fallback |
+
+> **Nota**: Este proyecto usa `gemini-3-flash-preview` para analizar ingredientes y `gemini-3-pro-image-preview` para generar imágenes del plato.
+
+### Generación de Imágenes con Gemini
+
+Para generar imágenes, el modelo debe configurarse con `responseModalities`:
+
+```kotlin
+// Configuración del modelo para generar imágenes
+val imageModel = Firebase.ai(backend = GenerativeBackend.googleAI())
+    .generativeModel(
+        modelName = "gemini-3-pro-image-preview",
+        generationConfig = generationConfig {
+            // IMPORTANTE: Debe incluir TEXT e IMAGE
+            responseModalities = listOf(ResponseModality.TEXT, ResponseModality.IMAGE)
+        }
+    )
+
+// Generar imagen
+val response = imageModel.generateContent("Genera una imagen de pasta carbonara")
+
+// Extraer el Bitmap de la respuesta
+val bitmap = response.candidates
+    .firstOrNull()
+    ?.content
+    ?.parts
+    ?.filterIsInstance<ImagePart>()
+    ?.firstOrNull()
+    ?.image
+```
+
+**Conceptos clave:**
+- `responseModalities`: Configura qué tipo de contenido puede generar el modelo
+- `ImagePart`: Clase que representa una parte de imagen en la respuesta
+- `.image`: Propiedad que devuelve el `Bitmap` de Android directamente
 
 ## Dependencias Clave
 
@@ -219,8 +393,14 @@ implementation("com.google.firebase:firebase-auth")
 // Cloud Firestore
 implementation("com.google.firebase:firebase-firestore")
 
+// Firebase Storage (cache de imágenes generadas)
+implementation("com.google.firebase:firebase-storage")
+
 // Firebase AI Logic (EL SDK CORRECTO)
 implementation("com.google.firebase:firebase-ai")
+
+// Coil para carga de imágenes desde URLs
+implementation("io.coil-kt:coil-compose:2.7.0")
 
 // NO USAR:
 // - com.google.firebase:firebase-vertexai (legacy/renombrado)
@@ -234,23 +414,42 @@ implementation("com.google.firebase:firebase-ai")
    - Firebase Auth valida credenciales
    - Se guarda sesión localmente
 
-2. **Vista de Recetas**:
+2. **Vista de Recetas** (HomeScreen):
    - Query a Firestore: `recipes.where("userId", "==", auth.uid)`
    - Observación en tiempo real con Flow
    - Lista actualizada automáticamente
+   - Click en receta → navega a detalle
 
-3. **Generación de Receta**:
+3. **Generación de Receta** (GeneratorScreen):
    - Usuario selecciona imagen (Photo Picker)
    - Imagen se envía a Firebase AI Logic (Gemini)
    - Gemini analiza y genera receta
    - Receta se guarda en Firestore
    - Usuario regresa a Home
 
+4. **Detalle de Receta** (RecipeDetailScreen):
+   - Muestra ingredientes y pasos completos
+   - Sistema de cache de imágenes generadas:
+     - Primera visita: Genera imagen con IA, sube a Storage, guarda URL
+     - Visitas posteriores: Usa URL guardada (sin consumir cuota)
+   - Usa `gemini-3-pro-image-preview` para crear imagen fotorealista
+   - Coil para carga eficiente de imágenes desde URL
+   - Estados de UI: Loading → Success/Error
+   - Opción de reintentar si falla la generación
+
 ## Solución de Problemas
 
 ### Error: "Firebase AI Logic not enabled"
 - Verifica que habilitaste AI Logic en Firebase Console
 - Asegúrate de que `google-services.json` está actualizado
+
+### Error: "App Check token invalid" o "AppCheck not registered"
+- Verifica que registraste la app en **Build > App Check** en Firebase Console
+- Asegúrate de seleccionar **Debug provider** al registrar
+- Busca el debug token en Logcat (filtrar por `DebugAppCheckProvider`)
+- Registra el token en **App Check > Apps > Manage debug tokens**
+- Reinicia la app después de registrar el token
+- Cada emulador/dispositivo tiene un token único
 
 ### Error: "PERMISSION_DENIED"
 - Verifica las reglas de Firestore
@@ -267,14 +466,48 @@ implementation("com.google.firebase:firebase-ai")
 - Algunos modelos requieren acceso especial
 - Los modelos preview pueden cambiar - consulta la documentación oficial
 
+### Error: "Storage PERMISSION_DENIED"
+- Verifica que configuraste las reglas de Firebase Storage
+- Asegúrate de que el usuario está autenticado
+- Revisa que el archivo no exceda 5MB
+- Confirma que el contentType es de tipo imagen
+
+## Cache de Imágenes
+
+La app implementa un sistema de cache para las imágenes generadas por IA:
+
+```
+┌───────────────┐     ┌────────────────────┐     ┌───────────────┐
+│ RecipeDetail  │────▶│  ¿Tiene imageUrl?  │─Sí─▶│ Coil carga    │
+│    Screen     │     │  (Firestore)       │     │ desde Storage │
+└───────────────┘     └─────────┬──────────┘     └───────────────┘
+                                │No
+                                ▼
+                      ┌────────────────────┐
+                      │ Generar con Gemini │
+                      │ (consume cuota)    │
+                      └─────────┬──────────┘
+                                ▼
+                      ┌────────────────────┐
+                      │ Subir a Storage    │
+                      │ Guardar URL        │
+                      └────────────────────┘
+```
+
+**Beneficios:**
+- Ahorro de cuota de API (solo genera una vez por receta)
+- Carga más rápida en visitas posteriores
+- Coil maneja cache local adicional (memoria + disco)
+
 ## Mejoras Futuras
 
-- [ ] Vista detalle de receta con todos los pasos
+- [x] Vista detalle de receta con todos los pasos
+- [x] Generación de imagen del plato terminado con IA
+- [x] Cache de imágenes generadas en Firebase Storage
 - [ ] Edición de recetas generadas
 - [ ] Compartir recetas
 - [ ] Historial de imágenes analizadas
-- [ ] Soporte offline con cache
-- [ ] Firebase App Check para seguridad adicional
+- [ ] Play Integrity para producción (reemplazar Debug Provider)
 - [ ] Analytics para métricas de uso
 
 ---
@@ -294,7 +527,11 @@ Este proyecto ha sido generado usando **Claude Code** y adaptado con fines educa
 
 - Firebase BoM: 34.7.0
 - Firebase AI Logic: Incluido en BoM (firebase-ai)
-- Modelo Gemini: gemini-3-flash-preview
+- Firebase Storage: Incluido en BoM (firebase-storage)
+- Modelos Gemini:
+  - `gemini-3-flash-preview` (análisis de imágenes)
+  - `gemini-3-pro-image-preview` (generación de imágenes)
+- Coil: 2.7.0 (carga de imágenes)
 - Jetpack Compose: BOM 2024.12.01
 - Android Gradle Plugin: 8.13.2
 - Gradle: 8.13

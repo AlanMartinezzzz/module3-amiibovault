@@ -5,10 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.curso.android.module5.aichef.data.firebase.AuthRepository
 import com.curso.android.module5.aichef.data.firebase.FirestoreRepository
+import com.curso.android.module5.aichef.data.firebase.StorageRepository
 import com.curso.android.module5.aichef.data.remote.AiLogicDataSource
 import com.curso.android.module5.aichef.domain.model.AuthState
 import com.curso.android.module5.aichef.domain.model.Recipe
 import com.curso.android.module5.aichef.domain.model.UiState
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +45,7 @@ import kotlinx.coroutines.launch
  *
  * =============================================================================
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class ChefViewModel : ViewModel() {
 
     // =========================================================================
@@ -50,6 +54,7 @@ class ChefViewModel : ViewModel() {
     // En producción, usar Dependency Injection (Hilt/Koin)
     private val authRepository = AuthRepository()
     private val firestoreRepository = FirestoreRepository()
+    private val storageRepository = StorageRepository()
     private val aiLogicDataSource = AiLogicDataSource()
 
     // =========================================================================
@@ -112,6 +117,17 @@ class ChefViewModel : ViewModel() {
 
     private val _generationState = MutableStateFlow<UiState<Recipe>>(UiState.Idle)
     val generationState: StateFlow<UiState<Recipe>> = _generationState.asStateFlow()
+
+    // =========================================================================
+    // ESTADO DE GENERACIÓN DE IMÁGENES
+    // =========================================================================
+    // El estado ahora es String (URL) en lugar de Bitmap
+    // Esto permite usar Coil para cargar y cachear la imagen eficientemente
+
+    private val _imageGenerationState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val imageGenerationState: StateFlow<UiState<String>> = _imageGenerationState.asStateFlow()
+
+    private var imageGenerationJob: Job? = null
 
     // =========================================================================
     // ACCIONES DE AUTENTICACIÓN
@@ -256,5 +272,112 @@ class ChefViewModel : ViewModel() {
         viewModelScope.launch {
             firestoreRepository.deleteRecipe(recipeId)
         }
+    }
+
+    // =========================================================================
+    // ACCIONES DE GENERACIÓN DE IMÁGENES CON CACHE
+    // =========================================================================
+
+    /**
+     * Obtiene o genera la imagen del plato terminado
+     *
+     * CONCEPTO: Cache de Imágenes Generadas
+     * Para evitar consumir cuota de API en cada vista:
+     * 1. Primero verificamos si ya existe una URL en el modelo (Firestore)
+     * 2. Si existe, la usamos directamente
+     * 3. Si no existe, generamos con Gemini, subimos a Storage, y guardamos URL
+     *
+     * FLUJO:
+     * ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+     * │ ¿Tiene URL?  │─Sí─▶│  Usar URL    │─────▶│   Success    │
+     * └──────┬───────┘     └──────────────┘     └──────────────┘
+     *        │No
+     *        ▼
+     * ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+     * │Generar imagen│────▶│Subir Storage │────▶│Guardar URL   │
+     * │  (Gemini)    │     │              │     │ (Firestore)  │
+     * └──────────────┘     └──────────────┘     └──────────────┘
+     *
+     * @param recipeId ID de la receta para cache
+     * @param existingImageUrl URL existente (si hay)
+     * @param recipeTitle Título de la receta
+     * @param ingredients Lista de ingredientes
+     */
+    fun generateRecipeImage(
+        recipeId: String,
+        existingImageUrl: String,
+        recipeTitle: String,
+        ingredients: List<String>
+    ) {
+        // Cancelar generación anterior si existe
+        imageGenerationJob?.cancel()
+
+        imageGenerationJob = viewModelScope.launch {
+            // ================================================================
+            // PASO 1: Verificar si ya existe imagen cacheada
+            // ================================================================
+            if (existingImageUrl.isNotBlank()) {
+                // Ya tenemos la imagen, usar directamente
+                _imageGenerationState.value = UiState.Success(existingImageUrl)
+                return@launch
+            }
+
+            // ================================================================
+            // PASO 2: No hay cache, generar nueva imagen
+            // ================================================================
+            _imageGenerationState.value = UiState.Loading("Generando imagen del plato...")
+
+            try {
+                // Generar imagen con Gemini
+                val bitmap = aiLogicDataSource.generateRecipeImage(recipeTitle, ingredients)
+
+                // ============================================================
+                // PASO 3: Subir imagen a Firebase Storage
+                // ============================================================
+                _imageGenerationState.value = UiState.Loading("Guardando imagen...")
+
+                val uploadResult = storageRepository.uploadRecipeImage(recipeId, bitmap)
+
+                uploadResult.fold(
+                    onSuccess = { imageUrl ->
+                        // ====================================================
+                        // PASO 4: Guardar URL en Firestore para futuro cache
+                        // ====================================================
+                        firestoreRepository.updateGeneratedImageUrl(recipeId, imageUrl)
+
+                        // Éxito - devolver la URL
+                        _imageGenerationState.value = UiState.Success(imageUrl)
+                    },
+                    onFailure = { error ->
+                        // Error al subir, pero tenemos el bitmap
+                        // Podríamos mostrar el bitmap directamente como fallback
+                        _imageGenerationState.value = UiState.Error(
+                            "Imagen generada pero no se pudo guardar: ${error.message}"
+                        )
+                    }
+                )
+
+            } catch (e: Exception) {
+                val errorMessage = when {
+                    e.message?.contains("quota", ignoreCase = true) == true ->
+                        "Cuota de API excedida. Intenta más tarde."
+                    e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true ->
+                        "Error de permisos. Verifica la configuración."
+                    e.message?.contains("not supported", ignoreCase = true) == true ->
+                        "Generación de imágenes no disponible."
+                    else ->
+                        "Error al generar imagen: ${e.message}"
+                }
+                _imageGenerationState.value = UiState.Error(errorMessage)
+            }
+        }
+    }
+
+    /**
+     * Limpia el estado de generación de imagen
+     */
+    fun clearImageState() {
+        imageGenerationJob?.cancel()
+        _imageGenerationState.value = UiState.Idle
     }
 }
