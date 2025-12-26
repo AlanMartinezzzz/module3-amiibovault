@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(chmod:*)",
+      "Bash(tree:*)",
+      "Bash(mkdir:*)",
+      "Bash(curl:*)",
+      "Bash(./gradlew:*)",
+      "Bash(gradle wrapper:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

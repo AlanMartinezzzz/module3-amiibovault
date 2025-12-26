@@ -1,0 +1,40 @@
+# System
+.DS_Store
+Thumbs.db
+
+# Android
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.cxx
+/build
+/captures
+.externalNativeBuild
+.cxx
+
+# IntelliJ
+.idea/
+
+# Web / Node
+node_modules
+dist
+.next
+out
+build
+.env
+.env.local
+.DS_Store
+coverage
+.vscode/
+
+# Python (if needed)
+__pycache__
+*.py[cod]
+venv/
+.env

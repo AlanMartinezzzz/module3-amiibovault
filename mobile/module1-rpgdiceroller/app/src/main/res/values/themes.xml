@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+==============================================================================
+THEMES.XML - Temas de la Aplicación
+==============================================================================
+Define el tema visual de la aplicación. El tema controla:
+  - Colores (primary, secondary, background, etc.)
+  - Tipografía
+  - Formas (esquinas redondeadas, etc.)
+  - Estilos de componentes (botones, campos de texto, etc.)
+
+NOTA IMPORTANTE PARA COMPOSE:
+
+Aunque usamos Jetpack Compose para la UI, aún necesitamos un tema XML porque:
+  1. El splash screen lo requiere
+  2. Algunas APIs del sistema lo consultan
+  3. ComponentActivity hereda configuraciones del tema
+
+Sin embargo, la mayor parte del theming se hace en Compose con MaterialTheme.
+==============================================================================
+-->
+<resources>
+    <!--
+    Theme.RPGDiceRollerApp: Nuestro tema personalizado.
+
+    Hereda de Theme.Material3.DayNight.NoActionBar porque:
+      - Material3: Usa Material Design 3 (Material You)
+      - DayNight: Soporta modo oscuro automáticamente
+      - NoActionBar: No queremos la ActionBar tradicional (usamos TopAppBar de Compose)
+    -->
+    <style name="Theme.RPGDiceRollerApp" parent="android:Theme.Material.Light.NoActionBar">
+        <!--
+        Configuración para Edge-to-Edge UI.
+        Estos atributos permiten que nuestra app dibuje detrás de las
+        barras del sistema (status bar y navigation bar).
+        -->
+
+        <!-- Status bar transparente para dibujar contenido debajo -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+
+        <!-- Navigation bar transparente -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+
+        <!-- Hace que la ventana ocupe toda la pantalla, incluyendo áreas del sistema -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>
