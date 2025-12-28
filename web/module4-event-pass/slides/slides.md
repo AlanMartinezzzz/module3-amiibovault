@@ -14,7 +14,7 @@ style: |
 ---
 
 <!-- _class: lead -->
-# Module 4: Full-Stack Next.js
+# Módulo 4: Next.js
 ## App Router, Server Components & Server Actions
 ### Adrián Catalán
 ### adriancatalan@galileo.edu
@@ -23,10 +23,10 @@ style: |
 
 ## Agenda
 
-1.  **Module App**
-2.  **Next.js App Router**
-3.  **Server Components**
-4.  **Server Actions**
+1.  **Proyecto: EventPass**
+2.  **App Router & Server Components**
+3.  **Server Actions (Sin API manual)**
+4.  **Streaming & Suspense**
 5.  **Deep Dive**
 6.  **Challenge Lab**
 

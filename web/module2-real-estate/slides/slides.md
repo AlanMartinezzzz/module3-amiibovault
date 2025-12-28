@@ -14,8 +14,8 @@ style: |
 ---
 
 <!-- _class: lead -->
-# Module 2: React Fundamentals
-## Components, Hooks & Modern UI
+# Módulo 2: Frontend Single Page Applications
+## React Core, Forms & Routing
 ### Adrián Catalán
 ### adriancatalan@galileo.edu
 
@@ -23,10 +23,10 @@ style: |
 
 ## Agenda
 
-1.  **Module App**
-2.  **React Basics**
-3.  **Hooks & State**
-4.  **Component Patterns**
+1.  **Proyecto: Real Estate React**
+2.  **React Core (Vite) & Hooks**
+3.  **Forms (Zod + React Hook Form)**
+4.  **Routing & LocalStorage**
 5.  **Deep Dive**
 6.  **Challenge Lab**
 

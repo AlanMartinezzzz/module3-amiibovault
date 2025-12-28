@@ -9,7 +9,11 @@
       "Bash(npm run db:push:*)",
       "Bash(npm run db:seed:*)",
       "Bash(npm run type-check:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(tree:*)",
+      "Bash(wc:*)",
+      "Bash(done)",
+      "Bash(grep:*)"
     ]
   }
 }

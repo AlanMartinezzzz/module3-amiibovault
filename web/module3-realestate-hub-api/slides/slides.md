@@ -14,8 +14,8 @@ style: |
 ---
 
 <!-- _class: lead -->
-# Module 3: Backend Development
-## Express.js, Prisma ORM & REST APIs
+# Módulo 3: Backend API
+## Node.js, Express & Base de Datos
 ### Adrián Catalán
 ### adriancatalan@galileo.edu
 
@@ -23,16 +23,16 @@ style: |
 
 ## Agenda
 
-1.  **Module App**
-2.  **Express.js Fundamentals**
-3.  **Prisma ORM**
-4.  **REST API Design**
+1.  **Proyecto: EstateHub API**
+2.  **Node.js & Express Basics**
+3.  **Controllers & Middlewares**
+4.  **Conexión con Base de Datos**
 5.  **Deep Dive**
 6.  **Challenge Lab**
 
 ---
 
-## RealEstate Hub API
+## EstateHub API
 
 We are building a REST API for real estate property management.
 

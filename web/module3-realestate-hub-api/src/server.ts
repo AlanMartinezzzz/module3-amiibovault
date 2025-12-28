@@ -62,11 +62,16 @@ app.use(
 );
 
 /**
- * JSON Parser
+ * JSON Parser con límite de tamaño
  *
- * Parsea automáticamente el body de peticiones con Content-Type: application/json
+ * Parsea automáticamente el body de peticiones con Content-Type: application/json.
+ * Limitamos a 1MB para prevenir ataques de denegación de servicio (DoS).
+ *
+ * ## Seguridad
+ * Sin límite, un atacante podría enviar payloads enormes para agotar memoria.
+ * 1MB es suficiente para propiedades con varias imágenes en base64.
  */
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 /**
  * Request Logger (solo en desarrollo)

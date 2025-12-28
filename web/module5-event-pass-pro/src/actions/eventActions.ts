@@ -46,6 +46,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { createEventSchema, type FormState, type CreateEventInput } from '@/types/event';
 import {
   createEvent as createEventInDb,
@@ -53,6 +54,71 @@ import {
   deleteEvent as deleteEventInDb,
   registerForEvent as registerInDb,
 } from '@/data/events';
+import { adminAuth } from '@/lib/firebase/admin';
+
+// =============================================================================
+// AUTENTICACIÓN EN SERVER ACTIONS
+// =============================================================================
+
+/**
+ * Valida que el usuario esté autenticado.
+ *
+ * ## ¿Por qué validar en Server Actions?
+ * Server Actions son endpoints públicos. Cualquier cliente puede invocarlos,
+ * incluso sin autenticación. SIEMPRE debemos validar antes de ejecutar
+ * operaciones sensibles.
+ *
+ * ## Estrategias de autenticación en Next.js
+ * 1. Cookies de sesión (más común)
+ * 2. Tokens en headers (API)
+ * 3. Pasar token desde el cliente (lo que usamos aquí)
+ *
+ * ## Nota educativa
+ * En producción, recomendamos usar cookies httpOnly para mayor seguridad.
+ * Este ejemplo usa un patrón simplificado para fines didácticos.
+ *
+ * @param idToken - Token de Firebase Auth del cliente
+ * @returns User ID si es válido, null si no
+ */
+async function validateAuth(idToken?: string): Promise<{ uid: string } | null> {
+  if (!idToken) {
+    // Intentamos obtener el token de las cookies
+    const cookieStore = await cookies();
+    const tokenFromCookie = cookieStore.get('firebase-auth-token')?.value;
+
+    if (!tokenFromCookie) {
+      console.warn('Server Action: No se proporcionó token de autenticación');
+      return null;
+    }
+
+    try {
+      const decodedToken = await adminAuth.verifyIdToken(tokenFromCookie);
+      return { uid: decodedToken.uid };
+    } catch (error) {
+      console.error('Server Action: Token de cookie inválido', error);
+      return null;
+    }
+  }
+
+  try {
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    return { uid: decodedToken.uid };
+  } catch (error) {
+    console.error('Server Action: Token inválido', error);
+    return null;
+  }
+}
+
+/**
+ * Helper para crear respuesta de error de autenticación.
+ */
+function authError(): FormState {
+  return {
+    success: false,
+    message: 'Debes iniciar sesión para realizar esta acción',
+    errors: { auth: ['No autenticado'] },
+  };
+}
 
 // =============================================================================
 // CREAR EVENTO
@@ -75,6 +141,12 @@ export async function createEventAction(
   prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
+  // 1. Validar autenticación
+  const auth = await validateAuth();
+  if (!auth) {
+    return authError();
+  }
+
   // Extraemos los datos del FormData
   const rawData = {
     title: formData.get('title') as string,
@@ -145,6 +217,14 @@ export async function updateEventAction(
   prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
+  // 1. Validar autenticación
+  const auth = await validateAuth();
+  if (!auth) {
+    return authError();
+  }
+
+  // TODO: En producción, verificar que auth.uid es el dueño del evento
+
   const rawData: Record<string, unknown> = {};
 
   // Solo incluimos campos que tienen valor
@@ -251,6 +331,14 @@ export async function updateEventAction(
  * <form action={deleteWithId}>
  */
 export async function deleteEventAction(id: string): Promise<FormState> {
+  // 1. Validar autenticación
+  const auth = await validateAuth();
+  if (!auth) {
+    return authError();
+  }
+
+  // TODO: En producción, verificar que auth.uid es el dueño del evento
+
   const deleted = await deleteEventInDb(id);
 
   if (!deleted) {

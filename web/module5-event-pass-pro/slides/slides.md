@@ -14,8 +14,8 @@ style: |
 ---
 
 <!-- _class: lead -->
-# Module 5: Cloud & AI Integration
-## Firebase Auth, Firestore & Gemini AI
+# Módulo 5: Firebase, AI & Deploy
+## Firebase Auth/Firestore, Gemini API & Deploy
 ### Adrián Catalán
 ### adriancatalan@galileo.edu
 
@@ -23,10 +23,10 @@ style: |
 
 ## Agenda
 
-1.  **Module App**
-2.  **Firebase Authentication**
-3.  **Cloud Firestore**
-4.  **Gemini AI Integration**
+1.  **Proyecto: EventPass Pro**
+2.  **Firebase Auth, Firestore & Storage**
+3.  **Uso de Gemini API**
+4.  **Deploy a Vercel y Google Cloud Run**
 5.  **Deep Dive**
 6.  **Challenge Lab**
 

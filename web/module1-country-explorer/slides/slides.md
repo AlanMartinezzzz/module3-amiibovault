@@ -14,8 +14,8 @@ style: |
 ---
 
 <!-- _class: lead -->
-# Module 1: Web Fundamentals
-## TypeScript, DOM Manipulation & REST APIs
+# Módulo 1: Fundamentos
+## HTML/Tailwind/DOM, JS Async & Fetch, TypeScript
 ### Adrián Catalán
 ### adriancatalan@galileo.edu
 
@@ -23,10 +23,10 @@ style: |
 
 ## Agenda
 
-1.  **Module App**
-2.  **TypeScript Fundamentals**
-3.  **DOM Manipulation**
-4.  **Fetch API & REST**
+1.  **Proyecto: Country Explorer**
+2.  **HTML, Tailwind CSS & DOM**
+3.  **JavaScript Async & Fetch API**
+4.  **TypeScript Introducción**
 5.  **Deep Dive**
 6.  **Challenge Lab**
 
