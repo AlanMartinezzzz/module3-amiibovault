@@ -1,0 +1,906 @@
+---
+marp: true
+theme: default
+paginate: true
+backgroundColor: #fff
+style: |
+  section { font-family: 'Inter', sans-serif; }
+  h1 { color: #0284c7; }
+  h2 { color: #0369a1; }
+  code { background-color: #f0f0f0; padding: 0.2em; border-radius: 4px; }
+  pre { background-color: #f5f5f5; border-radius: 8px; }
+  .center { text-align: center; }
+  .small { font-size: 0.8em; }
+---
+
+<!-- _class: lead -->
+# Module 5: Cloud & AI Integration
+## Firebase Auth, Firestore & Gemini AI
+### Adrián Catalán
+### adriancatalan@galileo.edu
+
+---
+
+## Agenda
+
+1.  **Module App**
+2.  **Firebase Authentication**
+3.  **Cloud Firestore**
+4.  **Gemini AI Integration**
+5.  **Deep Dive**
+6.  **Challenge Lab**
+
+---
+
+## EventPass Pro App
+
+Evolving EventPass with cloud services and AI.
+
+**New Features:**
+1.  **Authentication**: Login with email/password or Google.
+2.  **Cloud Database**: Real-time Firestore database.
+3.  **AI Generation**: Gemini generates event descriptions.
+4.  **User Events**: Events associated with authenticated users.
+
+---
+
+## Architecture Overview
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    EventPass Pro Architecture                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   BROWSER                                                        │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  AuthProvider (React Context)                           │   │
+│   │  ┌─────────────────────────────────────────────────┐   │   │
+│   │  │  Firebase Auth SDK (Client)                     │   │   │
+│   │  │  - signInWithEmailAndPassword()                 │   │   │
+│   │  │  - signInWithPopup(GoogleProvider)              │   │   │
+│   │  └─────────────────────────────────────────────────┘   │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                              │                                   │
+│   SERVER                     ▼                                   │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  Server Actions        │        API Routes               │   │
+│   │  (Firestore CRUD)      │    (/api/generate-description)  │   │
+│   │       │                │              │                  │   │
+│   │       ▼                │              ▼                  │   │
+│   │  Firebase Admin        │         Gemini AI               │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+<!-- _class: lead -->
+# 2. Firebase Authentication
+
+---
+
+## Why Firebase Auth?
+
+**The Problem (DIY Auth):**
+- Password hashing, token management, session handling
+- Email verification, password reset flows
+- Security vulnerabilities
+- OAuth integration complexity
+
+**The Solution (Firebase Auth):**
+- Battle-tested authentication
+- Multiple providers (Email, Google, Apple, GitHub)
+- Automatic token refresh
+- Security rules integration
+
+---
+
+## Firebase in Next.js
+
+Two SDKs for different contexts.
+
+| SDK | Context | Use For |
+|-----|---------|---------|
+| `firebase` | Client (Browser) | Interactive auth, listeners |
+| `firebase-admin` | Server (Actions/Routes) | Privileged access, verify tokens |
+
+```typescript
+// Client-side (visible in browser)
+NEXT_PUBLIC_FIREBASE_API_KEY=xxx
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=xxx
+
+// Server-side (secrets, never exposed)
+FIREBASE_ADMIN_PROJECT_ID=xxx
+FIREBASE_ADMIN_PRIVATE_KEY=xxx
+```
+
+---
+
+## Client SDK Configuration
+
+```typescript
+// lib/firebase/config.ts
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+
+const firebaseConfig = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+};
+
+// Singleton pattern - don't initialize twice
+const app = getApps().length === 0
+    ? initializeApp(firebaseConfig)
+    : getApp();
+
+export const auth = getAuth(app);
+```
+
+---
+
+## Auth Context Pattern
+
+Share auth state across the app with React Context.
+
+```tsx
+// contexts/AuthContext.tsx
+'use client';
+
+import { createContext, useContext, useEffect, useState } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase/config';
+
+interface AuthContextType {
+    user: User | null;
+    loading: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function useAuth() {
+    const context = useContext(AuthContext);
+    if (!context) throw new Error('useAuth must be within AuthProvider');
+    return context;
+}
+```
+
+---
+
+## Auth Provider Implementation
+
+```tsx
+// contexts/AuthContext.tsx (continued)
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Firebase listener for auth state changes
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            setUser(firebaseUser);
+            setLoading(false);
+        });
+
+        // Cleanup on unmount
+        return () => unsubscribe();
+    }, []);
+
+    return (
+        <AuthContext.Provider value={{ user, loading }}>
+            {children}
+        </AuthContext.Provider>
+    );
+}
+```
+
+---
+
+## Sign In Methods
+
+```tsx
+// contexts/AuthContext.tsx
+import {
+    signInWithEmailAndPassword,
+    signInWithPopup,
+    GoogleAuthProvider,
+    createUserWithEmailAndPassword,
+    signOut
+} from 'firebase/auth';
+
+// Email/Password
+const signIn = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password);
+};
+
+// Google OAuth
+const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+};
+
+// Sign Out
+const signOut = async () => {
+    await firebaseSignOut(auth);
+};
+```
+
+---
+
+## Login Form Component
+
+```tsx
+// components/auth/LoginForm.tsx
+'use client';
+
+import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+
+export function LoginForm() {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const { signIn, signInWithGoogle, error } = useAuth();
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        await signIn(email, password);
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <input type="email" value={email} onChange={...} />
+            <input type="password" value={password} onChange={...} />
+            {error && <p className="text-red-500">{error}</p>}
+            <button type="submit">Iniciar Sesión</button>
+            <button type="button" onClick={signInWithGoogle}>
+                Continuar con Google
+            </button>
+        </form>
+    );
+}
+```
+
+---
+
+## User Menu Component
+
+```tsx
+// components/auth/UserMenu.tsx
+'use client';
+
+import { useAuth } from '@/contexts/AuthContext';
+import { Avatar } from '@/components/ui/avatar';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+
+export function UserMenu() {
+    const { user, signOut } = useAuth();
+
+    if (!user) return <Link href="/auth">Iniciar Sesión</Link>;
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger>
+                <Avatar src={user.photoURL} alt={user.displayName} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                <DropdownMenuItem>{user.email}</DropdownMenuItem>
+                <DropdownMenuItem onClick={signOut}>Cerrar Sesión</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+```
+
+---
+
+<!-- _class: lead -->
+# 3. Cloud Firestore
+
+---
+
+## What is Firestore?
+
+A NoSQL document database with real-time sync.
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    Firestore Data Model                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  events (Collection)                                             │
+│    │                                                             │
+│    ├── abc123 (Document)                                         │
+│    │     ├── title: "Conferencia Web"                            │
+│    │     ├── description: "..."                                  │
+│    │     ├── organizerId: "user_xyz"                             │
+│    │     ├── date: Timestamp                                     │
+│    │     └── createdAt: Timestamp                                │
+│    │                                                             │
+│    └── def456 (Document)                                         │
+│          └── ...                                                 │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Firebase Admin SDK Setup
+
+```typescript
+// lib/firebase/admin.ts
+import { initializeApp, cert, getApps, getApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+const serviceAccount = {
+    projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+};
+
+const app = getApps().length === 0
+    ? initializeApp({ credential: cert(serviceAccount) })
+    : getApp();
+
+export const adminDb = getFirestore(app);
+```
+
+---
+
+## Firestore Data Layer
+
+```typescript
+// lib/firebase/firestore.ts
+import { adminDb } from './admin';
+import { Timestamp } from 'firebase-admin/firestore';
+
+const EVENTS_COLLECTION = 'events';
+
+export async function getEvents(filters?: EventFilters): Promise<Event[]> {
+    let query = adminDb.collection(EVENTS_COLLECTION)
+        .orderBy('date', 'asc');
+
+    if (filters?.status) {
+        query = query.where('status', '==', filters.status);
+    }
+
+    if (filters?.category) {
+        query = query.where('category', '==', filters.category);
+    }
+
+    const snapshot = await query.get();
+    return snapshot.docs.map(doc => docToEvent(doc.id, doc.data()));
+}
+```
+
+---
+
+## CRUD Operations
+
+```typescript
+// lib/firebase/firestore.ts
+
+// CREATE
+export async function createEvent(data: CreateEventInput): Promise<Event> {
+    const eventData = {
+        ...data,
+        registeredCount: 0,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        date: Timestamp.fromDate(new Date(data.date)),
+    };
+
+    const docRef = await adminDb.collection(EVENTS_COLLECTION).add(eventData);
+    const newDoc = await docRef.get();
+    return docToEvent(docRef.id, newDoc.data()!);
+}
+
+// READ BY ID
+export async function getEventById(id: string): Promise<Event | null> {
+    const docSnap = await adminDb.collection(EVENTS_COLLECTION).doc(id).get();
+    return docSnap.exists ? docToEvent(docSnap.id, docSnap.data()!) : null;
+}
+```
+
+---
+
+## Update & Delete
+
+```typescript
+// lib/firebase/firestore.ts
+
+// UPDATE
+export async function updateEvent(
+    id: string,
+    data: Partial<CreateEventInput>
+): Promise<Event | null> {
+    const docRef = adminDb.collection(EVENTS_COLLECTION).doc(id);
+
+    await docRef.update({
+        ...data,
+        updatedAt: Timestamp.now(),
+    });
+
+    const updatedDoc = await docRef.get();
+    return docToEvent(id, updatedDoc.data()!);
+}
+
+// DELETE
+export async function deleteEvent(id: string): Promise<boolean> {
+    await adminDb.collection(EVENTS_COLLECTION).doc(id).delete();
+    return true;
+}
+```
+
+---
+
+## Transactions for Consistency
+
+```typescript
+// lib/firebase/firestore.ts
+export async function registerForEvent(eventId: string): Promise<Event | null> {
+    const docRef = adminDb.collection(EVENTS_COLLECTION).doc(eventId);
+
+    const result = await adminDb.runTransaction(async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        if (!docSnap.exists) return null;
+
+        const data = docSnap.data()!;
+        if (data.registeredCount >= data.capacity) return null;
+        if (data.status !== 'publicado') return null;
+
+        transaction.update(docRef, {
+            registeredCount: data.registeredCount + 1,
+            updatedAt: Timestamp.now(),
+        });
+
+        return { ...data, registeredCount: data.registeredCount + 1 };
+    });
+
+    return result ? docToEvent(eventId, result) : null;
+}
+```
+
+---
+
+## Firestore Security Rules
+
+```javascript
+// firestore.rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /events/{eventId} {
+      // Anyone can read published events
+      allow read: if resource.data.status == 'publicado';
+
+      // Only owner can create (must set own organizerId)
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.organizerId;
+
+      // Only owner can update/delete
+      allow update, delete: if request.auth != null
+                            && request.auth.uid == resource.data.organizerId;
+    }
+  }
+}
+```
+
+---
+
+<!-- _class: lead -->
+# 4. Gemini AI Integration
+
+---
+
+## Gemini for Content Generation
+
+Use AI to generate event descriptions automatically.
+
+```typescript
+// lib/gemini.ts
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+
+export async function generateEventDescription(input: {
+    title: string;
+    category: string;
+    date: string;
+    location: string;
+}): Promise<string> {
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const prompt = `Generate a compelling event description in Spanish for:
+        Title: ${input.title}
+        Category: ${input.category}
+        Date: ${input.date}
+        Location: ${input.location}
+
+        Requirements:
+        - 2-3 paragraphs
+        - Professional tone
+        - Include call to action`;
+
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+}
+```
+
+---
+
+## API Route for AI
+
+Protect API key by using a server route.
+
+```typescript
+// app/api/generate-description/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { generateEventDescription } from '@/lib/gemini';
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+
+        if (!body.title || !body.category) {
+            return NextResponse.json(
+                { error: 'Missing required fields' },
+                { status: 400 }
+            );
+        }
+
+        const description = await generateEventDescription(body);
+
+        return NextResponse.json({ description });
+    } catch (error) {
+        return NextResponse.json(
+            { error: 'Failed to generate description' },
+            { status: 500 }
+        );
+    }
+}
+```
+
+---
+
+## Generate Button Component
+
+```tsx
+// components/ai/GenerateDescriptionButton.tsx
+'use client';
+
+import { useState } from 'react';
+
+interface Props {
+    eventData: { title: string; category: string; date: string; location: string };
+    onGenerated: (description: string) => void;
+}
+
+export function GenerateDescriptionButton({ eventData, onGenerated }: Props) {
+    const [loading, setLoading] = useState(false);
+
+    const handleGenerate = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch('/api/generate-description', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData),
+            });
+            const { description } = await response.json();
+            onGenerated(description);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <button onClick={handleGenerate} disabled={loading}>
+            {loading ? 'Generando...' : '✨ Generar con IA'}
+        </button>
+    );
+}
+```
+
+---
+
+## AI in the Event Form
+
+```tsx
+// components/EventForm.tsx
+'use client';
+
+export function EventForm() {
+    const [description, setDescription] = useState('');
+    const [formData, setFormData] = useState({
+        title: '', category: '', date: '', location: ''
+    });
+
+    return (
+        <form action={createEvent}>
+            <input name="title" onChange={...} />
+            <select name="category" onChange={...} />
+            <input type="date" name="date" onChange={...} />
+            <input name="location" onChange={...} />
+
+            <div className="flex gap-2">
+                <textarea
+                    name="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                />
+                <GenerateDescriptionButton
+                    eventData={formData}
+                    onGenerated={setDescription}
+                />
+            </div>
+        </form>
+    );
+}
+```
+
+---
+
+<!-- _class: lead -->
+# 5. Deep Dive
+
+---
+
+## 1. Client vs Admin SDK
+
+Understanding when to use each SDK.
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│              Firebase SDK Decision Tree                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Where is the code running?                                      │
+│                                                                  │
+│  ├── BROWSER (Client Components)                                 │
+│  │   └── Use `firebase` (client SDK)                             │
+│  │       - Auth UI (login forms, OAuth popups)                   │
+│  │       - Real-time listeners                                   │
+│  │       - User-initiated actions                                │
+│  │                                                               │
+│  └── SERVER (Server Actions, API Routes)                         │
+│      └── Use `firebase-admin`                                    │
+│          - Database operations                                   │
+│          - Verify tokens                                         │
+│          - Privileged operations                                 │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Build Time Safety
+
+Firebase can fail during Next.js build if not configured.
+
+```typescript
+// lib/firebase/config.ts
+
+function hasFirebaseCredentials(): boolean {
+    return Boolean(
+        process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+        process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    );
+}
+
+// Lazy initialization
+export function getFirebaseAuth(): Auth | null {
+    if (!hasFirebaseCredentials()) {
+        if (typeof window !== 'undefined') {
+            console.warn('Firebase not configured');
+        }
+        return null;
+    }
+
+    return getAuth(getFirebaseApp());
+}
+```
+
+---
+
+## 3. onAuthStateChanged Lifecycle
+
+How Firebase auth state flows through the app.
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    Auth State Flow                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. App Loads                                                    │
+│     └── AuthProvider mounts                                      │
+│         └── onAuthStateChanged registers listener                │
+│                                                                  │
+│  2. User Signs In                                                │
+│     └── signInWithEmailAndPassword() succeeds                    │
+│         └── Firebase triggers listener                           │
+│             └── setUser(firebaseUser)                            │
+│                 └── Context updates → Components re-render       │
+│                                                                  │
+│  3. Token Refresh (automatic, ~1 hour)                           │
+│     └── Firebase handles silently                                │
+│                                                                  │
+│  4. User Signs Out                                               │
+│     └── signOut() called                                         │
+│         └── Listener fires with null                             │
+│             └── setUser(null)                                    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Firestore Timestamps
+
+Converting between Firestore and JavaScript dates.
+
+```typescript
+import { Timestamp } from 'firebase-admin/firestore';
+
+// Writing to Firestore
+const eventData = {
+    title: 'Conference',
+    date: Timestamp.fromDate(new Date('2024-12-15')),
+    createdAt: Timestamp.now(),
+};
+
+// Reading from Firestore
+function docToEvent(id: string, data: DocumentData): Event {
+    return {
+        id,
+        title: data.title,
+        // Convert Timestamp to ISO string
+        date: data.date instanceof Timestamp
+            ? data.date.toDate().toISOString()
+            : data.date,
+        createdAt: data.createdAt.toDate().toISOString(),
+    };
+}
+```
+
+---
+
+## 5. Error Translation
+
+Map Firebase error codes to user-friendly messages.
+
+```typescript
+// contexts/AuthContext.tsx
+function translateFirebaseError(message: string): string {
+    const translations: Record<string, string> = {
+        'auth/email-already-in-use': 'Este email ya está registrado',
+        'auth/invalid-email': 'Email inválido',
+        'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres',
+        'auth/user-not-found': 'No existe una cuenta con este email',
+        'auth/wrong-password': 'Contraseña incorrecta',
+        'auth/invalid-credential': 'Credenciales inválidas',
+        'auth/popup-closed-by-user': 'Se cerró la ventana de autenticación',
+    };
+
+    for (const [code, translation] of Object.entries(translations)) {
+        if (message.includes(code)) return translation;
+    }
+    return message;
+}
+```
+
+---
+
+<!-- _class: lead -->
+# 6. Challenge Lab
+## Practice & Application
+
+---
+
+## Part 1: My Events Dashboard
+
+**Context:**
+Authenticated users need to see only their events and manage them (edit/delete).
+
+**Your Task:**
+Create a "My Events" page that:
+- Only accessible to authenticated users
+- Shows events where organizerId matches current user
+- Allows editing and deleting own events
+- Redirects to login if not authenticated
+
+**Files to Create/Modify:**
+- `app/my-events/page.tsx`
+- `actions/eventActions.ts` (add delete action)
+- `components/EventCard.tsx` (add edit/delete buttons)
+
+---
+
+## Part 1: Definition of Done
+
+| Criteria | Description |
+|----------|-------------|
+| Protected route | Redirects to /auth if not logged in |
+| User filter | Only shows events where organizerId === user.uid |
+| Edit button | Navigates to edit form with pre-filled data |
+| Delete button | Confirms and deletes event |
+| Authorization | Server validates user owns event before delete |
+| Empty state | "No events yet" message with CTA |
+| Loading state | Shows skeleton while fetching |
+
+---
+
+## Part 2: Enhanced AI Generation
+
+**Context:**
+The AI description generator could be more powerful with structured output and multiple suggestions.
+
+**Your Task:**
+Enhance the AI feature to:
+- Generate 3 description variants
+- Let user pick their favorite
+- Support different tones (formal, casual, exciting)
+- Show loading progress
+
+**Files to Modify:**
+- `lib/gemini.ts`
+- `app/api/generate-description/route.ts`
+- `components/ai/GenerateDescriptionButton.tsx`
+
+---
+
+## Part 2: Definition of Done
+
+| Criteria | Description |
+|----------|-------------|
+| Multiple variants | Returns array of 3 descriptions |
+| Tone selector | Dropdown to choose formal/casual/exciting |
+| Selection UI | Cards to preview and select variant |
+| Apply button | Selected description fills textarea |
+| Progress indicator | Shows "Generating..." with spinner |
+| Error handling | Shows error message if generation fails |
+| Regenerate | Button to generate new variants |
+
+---
+
+<!-- _class: lead -->
+# Resources & Wrap-up
+
+---
+
+## Resources
+
+**Firebase Auth**
+*   [Firebase Auth Web Docs](https://firebase.google.com/docs/auth/web/start)
+*   [Auth State Persistence](https://firebase.google.com/docs/auth/web/auth-state-persistence)
+*   [Google Sign-In](https://firebase.google.com/docs/auth/web/google-signin)
+
+**Cloud Firestore**
+*   [Firestore Web Docs](https://firebase.google.com/docs/firestore/quickstart)
+*   [Security Rules](https://firebase.google.com/docs/firestore/security/get-started)
+*   [Data Modeling](https://firebase.google.com/docs/firestore/data-model)
+*   [Transactions](https://firebase.google.com/docs/firestore/manage-data/transactions)
+
+**Gemini AI**
+*   [Gemini API Docs](https://ai.google.dev/gemini-api/docs)
+*   [Prompt Engineering](https://ai.google.dev/gemini-api/docs/prompting-intro)
+*   [Google AI Studio](https://aistudio.google.com)
+
+---
+
+## Recommended Articles
+
+**Firebase in Next.js**
+*   [Firebase with Next.js 13+](https://firebase.google.com/docs/web/frameworks/nextjs) - Firebase Docs
+*   [Server-Side Auth with Firebase](https://firebase.blog/posts/2022/10/auth-on-the-server) - Firebase Blog
+*   [Firestore Security Rules Guide](https://firebase.google.com/docs/firestore/security/rules-structure) - Firebase Docs
+
+**Generative AI**
+*   [Gemini API Quickstart](https://ai.google.dev/gemini-api/docs/quickstart) - Google AI
+*   [Prompt Design Strategies](https://ai.google.dev/gemini-api/docs/prompting-strategies) - Google AI
+*   [Building AI-Powered Apps](https://developers.googleblog.com/en/building-ai-powered-apps/) - Google Developers
