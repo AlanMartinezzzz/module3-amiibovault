@@ -1,7 +1,64 @@
+// =============================================================================
+// AI ACTIONS - Module 5: EventPass Pro
+// =============================================================================
+//
+// ## Educational Note: Server Actions para IA Generativa
+//
+// Este archivo contiene Server Actions que integran Gemini AI para generar
+// contenido de eventos. Usamos Server Actions en lugar de API Routes porque:
+//
+// 1. **Seguridad**: Las API keys NUNCA llegan al cliente
+// 2. **Simplicidad**: No necesitamos crear endpoints REST
+// 3. **Type Safety**: TypeScript end-to-end sin serializacion manual
+// 4. **Caching**: Next.js puede cachear resultados automaticamente
+//
+// ### Flujo de Generación con Gemini
+//
+// ```
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │                    FLUJO: CLIENTE → SERVER ACTION → GEMINI              │
+// ├─────────────────────────────────────────────────────────────────────────┤
+// │                                                                          │
+// │   1. Usuario escribe título ────────────────────────────────────────┐    │
+// │      "Conferencia de React 2025"                                    │    │
+// │                                                                     │    │
+// │   2. Click "Generar con IA" ────────────────────────────────────────┤    │
+// │                                                                     │    │
+// │   3. EventForm llama generateEventDetailsAction(title) ─────────────┤    │
+// │      (Server Action, ejecuta en el servidor)                        │    │
+// │                                                                     │    │
+// │   4. Server Action construye prompt ────────────────────────────────┤    │
+// │      + Envía a Gemini API                                           │    │
+// │                                                                     │    │
+// │   5. Gemini retorna JSON ───────────────────────────────────────────┤    │
+// │      { description, category, tags }                                │    │
+// │                                                                     │    │
+// │   6. Server Action parsea y valida ─────────────────────────────────┤    │
+// │                                                                     │    │
+// │   7. Retorna datos al cliente ──────────────────────────────────────┘    │
+// │      EventForm actualiza campos automáticamente                          │
+// │                                                                          │
+// └─────────────────────────────────────────────────────────────────────────┘
+// ```
+//
+// ### Prompt Engineering
+//
+// El prompt está diseñado para:
+// 1. Dar contexto claro al modelo (eres un experto en eventos)
+// 2. Especificar el formato exacto de salida (JSON)
+// 3. Incluir restricciones (categorías válidas, límite de caracteres)
+// 4. Pedir respuesta sin formato markdown (solo JSON)
+//
+// =============================================================================
+
 'use server';
 
 import { getGeminiClient, GEMINI_MODELS } from '@/lib/gemini';
 import { EVENT_CATEGORIES } from '@/types/event';
+
+// =============================================================================
+// TIPOS DE RESPUESTA
+// =============================================================================
 
 export interface GeneratedEventDetails {
     description: string;

@@ -1,11 +1,64 @@
+// =============================================================================
+// FIRESTORE DATA LAYER - Module 5: EventPass Pro
+// =============================================================================
+//
+// ## Educational Note: Capa de Datos con Firestore
+//
+// Este archivo implementa el patrón "Data Layer" o "Repository Pattern"
+// que abstrae el acceso a Firestore. Los componentes y actions llaman
+// a estas funciones sin conocer los detalles de Firestore.
+//
+// ### Arquitectura de Acceso a Datos
+//
+// ```
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │                    CAPA DE DATOS EN NEXT.JS + FIREBASE                  │
+// ├─────────────────────────────────────────────────────────────────────────┤
+// │                                                                          │
+// │   CLIENTE (Browser)                 SERVIDOR (Node.js)                   │
+// │   ─────────────────────────────────────────────────────────────────────  │
+// │                                                                          │
+// │   Client Components                 Server Actions / API Routes          │
+// │         │                                     │                          │
+// │         ▼                                     ▼                          │
+// │   getEventsClient()                 getEvents()                          │
+// │         │                                     │                          │
+// │         ▼                                     ▼                          │
+// │   firebase (SDK cliente)            firebase-admin (SDK servidor)        │
+// │         │                                     │                          │
+// │         └─────────────┬───────────────────────┘                          │
+// │                       ▼                                                  │
+// │                  FIRESTORE                                               │
+// │                                                                          │
+// └─────────────────────────────────────────────────────────────────────────┘
+// ```
+//
+// ### ¿Por qué dos SDKs diferentes?
+//
+// 1. **firebase (cliente)**: Funciona en el browser, usa credenciales públicas
+// 2. **firebase-admin (servidor)**: Funciona en Node.js, usa credenciales privadas
+//
+// Ambos acceden a la MISMA base de datos Firestore, pero con diferentes
+// niveles de privilegio y contextos de ejecución.
+//
+// ### Conversión de Timestamps
+//
+// Firestore usa objetos `Timestamp` para fechas. Debemos convertirlos a
+// strings ISO para que sean serializables en JSON (requerido por Server Actions).
+//
+// =============================================================================
+
 import { adminDb } from '@/lib/firebase/admin';
 import { db } from '@/lib/firebase/config';
 import { Event } from '@/types/event';
 import { collection, doc, getDoc, getDocs, query, where, orderBy, setDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 
-// ============================================================================
-// CLIENT-SIDE (Usar en componentes 'use client' o hooks)
-// ============================================================================
+// =============================================================================
+// CLIENT-SIDE FUNCTIONS
+// =============================================================================
+// Usar en componentes 'use client' o custom hooks.
+// Estas funciones usan el SDK de cliente (firebase) que funciona en el browser.
+// =============================================================================
 
 export async function getEventsClient(status?: string): Promise<Event[]> {
   const eventsRef = collection(db, 'events');
@@ -19,9 +72,17 @@ export async function getEventsClient(status?: string): Promise<Event[]> {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
 }
 
-// ============================================================================
-// SERVER-SIDE (Usar en Server Actions, API Routes o Server Components)
-// ============================================================================
+// =============================================================================
+// SERVER-SIDE FUNCTIONS
+// =============================================================================
+// Usar EXCLUSIVAMENTE en:
+// - Server Actions ('use server')
+// - API Routes (app/api/.../route.ts)
+// - Server Components (async function Page())
+//
+// Estas funciones usan firebase-admin que tiene acceso privilegiado.
+// NUNCA importar estas funciones en archivos 'use client'.
+// =============================================================================
 
 const EVENTS_COLLECTION = 'events';
 

@@ -19,7 +19,8 @@
       "Bash(npx prisma generate:*)",
       "Bash(timeout 5 npm run dev:*)",
       "Bash(cat:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(rm:*)"
     ]
   }
 }

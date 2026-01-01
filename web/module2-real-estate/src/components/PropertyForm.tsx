@@ -1,19 +1,79 @@
 // =============================================================================
-// COMPONENTE: PROPERTY FORM - Real Estate React
+// COMPONENTE: PROPERTY FORM - Module 2: Real Estate React
 // =============================================================================
-// Formulario para crear/editar propiedades usando React Hook Form + Zod.
 //
-// ## React Hook Form + Zod
-// Esta combinación es el estándar moderno para formularios en React:
-// - React Hook Form: Manejo eficiente del estado del formulario
-// - Zod: Validación de esquemas con tipos TypeScript
-// - @hookform/resolvers: Conecta Zod con React Hook Form
+// ## Educational Note: Formularios Modernos con React Hook Form + Zod
 //
-// ## ¿Por qué React Hook Form?
-// 1. Rendimiento: No re-renderiza en cada keystroke
-// 2. Menos código: register() conecta inputs automáticamente
-// 3. Validación flexible: Soporta múltiples esquemas
-// 4. DevTools: Herramientas de debugging excelentes
+// Este componente demuestra el patrón estándar de la industria para
+// formularios complejos en React. La combinación RHF + Zod resuelve
+// los problemas históricos de los formularios en React.
+//
+// ### El Problema de los Formularios en React
+//
+// ```
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │                    EVOLUCIÓN DE FORMULARIOS EN REACT                    │
+// ├─────────────────────────────────────────────────────────────────────────┤
+// │                                                                          │
+// │   ERA 1: Controlled Components (useState por cada campo)                │
+// │   ─────────────────────────────────────────────────────────────────────  │
+// │   const [name, setName] = useState('');                                  │
+// │   const [email, setEmail] = useState('');                                │
+// │   const [age, setAge] = useState(0);                                     │
+// │   // ... 10 más estados, 10 más handlers, re-render en cada keystroke   │
+// │   ✗ Mucho boilerplate  ✗ Re-renders excesivos  ✗ Validación manual     │
+// │                                                                          │
+// │   ERA 2: Librerías (Formik, React Final Form)                           │
+// │   ─────────────────────────────────────────────────────────────────────  │
+// │   <Formik><Field name="email" /></Formik>                                │
+// │   ✓ Menos código  ✗ Bundle grande  ✗ API compleja  ✗ Re-renders        │
+// │                                                                          │
+// │   ERA 3: React Hook Form (actual)                                        │
+// │   ─────────────────────────────────────────────────────────────────────  │
+// │   const { register } = useForm();                                        │
+// │   <input {...register('email')} />                                       │
+// │   ✓ Mínimo boilerplate  ✓ Sin re-renders  ✓ Bundle pequeño  ✓ TypeScript│
+// │                                                                          │
+// └─────────────────────────────────────────────────────────────────────────┘
+// ```
+//
+// ### ¿Por qué un Custom Resolver en lugar de @hookform/resolvers?
+//
+// Aunque existe `@hookform/resolvers/zod`, implementamos un resolver
+// manual por razones educativas:
+//
+// 1. **Entender el flujo** - Ver cómo Zod y RHF se conectan internamente
+// 2. **Control total** - Personalizar formato de errores, agregar logging
+// 3. **Menos dependencias** - Una librería menos que mantener
+// 4. **Depuración fácil** - Podemos agregar console.log y breakpoints
+//
+// ```typescript
+// // El resolver es una función async que RHF llama en cada submit:
+// resolver: async (values) => {
+//   const result = schema.safeParse(values);
+//   if (result.success) return { values: result.data, errors: {} };
+//   return { values: {}, errors: mapZodErrors(result.error) };
+// }
+// ```
+//
+// ### Flujo de Datos del Formulario
+//
+// ```
+// Usuario escribe → Input (no re-render) → Submit → Resolver → Zod
+//                                                      │
+//                   ┌─────────────────────────────────┘
+//                   │
+//         ┌────────▼────────┐
+//         │  ¿Validación OK? │
+//         └────────┬────────┘
+//                  │
+//        ┌────────┴────────┐
+//        ▼                 ▼
+//   [SUCCESS]          [ERROR]
+//   onSubmit()      errors → UI
+//   Guardar datos   Mostrar mensajes
+// ```
+//
 // =============================================================================
 
 import type React from 'react';

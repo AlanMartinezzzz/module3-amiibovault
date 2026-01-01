@@ -3,13 +3,45 @@
 // =============================================================================
 // Servicio para persistir datos en localStorage.
 //
-// ## localStorage como "Base de Datos"
-// En este módulo, localStorage simula un backend. Esto enseña:
-// 1. Cómo funcionaría un CRUD real
-// 2. Serialización/deserialización de datos
-// 3. Manejo de errores de almacenamiento
+// ## Educational Note: localStorage como "Base de Datos"
 //
-// En el Módulo 3, reemplazaremos esto con una API REST real.
+// En este módulo, localStorage simula un backend. Esto enseña conceptos
+// fundamentales de persistencia de datos antes de introducir APIs reales.
+//
+// ### ¿Por qué usar localStorage primero?
+//
+// 1. **Sin configuración de servidor** - Enfoque 100% en React y formularios
+// 2. **Datos persisten entre sesiones** - El usuario ve sus propiedades al volver
+// 3. **Patrón CRUD idéntico** - Las operaciones son las mismas que con una API
+// 4. **Manejo de errores** - Aprendemos a manejar fallos de almacenamiento
+//
+// ### Limitaciones de localStorage (importantes para entender)
+//
+// ```
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │                     COMPARACIÓN: localStorage vs API                    │
+// ├─────────────────────────────────────────────────────────────────────────┤
+// │  localStorage                        │  API REST (Módulo 3)             │
+// │  ────────────────────────────────────┼────────────────────────────────  │
+// │  ✗ Solo 5-10MB de almacenamiento    │  ✓ Almacenamiento ilimitado      │
+// │  ✗ Solo strings (hay que serializar)│  ✓ JSON nativo                   │
+// │  ✗ No sincroniza entre dispositivos │  ✓ Datos en la nube              │
+// │  ✗ Usuario puede borrar datos       │  ✓ Datos seguros en servidor     │
+// │  ✗ Sin búsqueda avanzada            │  ✓ Queries SQL/NoSQL             │
+// │  ✓ Sin latencia de red              │  ✗ Requiere conexión             │
+// │  ✓ Funciona offline                 │  ✗ Falla sin internet            │
+// └─────────────────────────────────────────────────────────────────────────┘
+// ```
+//
+// ### Evolución en el Curso
+//
+// En el **Módulo 3**, reemplazaremos estas funciones por llamadas fetch():
+// - `getAllProperties()` → `fetch('/api/properties')`
+// - `createProperty()` → `fetch('/api/properties', { method: 'POST' })`
+// - `updateProperty()` → `fetch('/api/properties/:id', { method: 'PUT' })`
+// - `deleteProperty()` → `fetch('/api/properties/:id', { method: 'DELETE' })`
+//
+// ¡El frontend casi no cambia! Solo la capa de datos es diferente.
 // =============================================================================
 
 import type { Property, PropertyFilters, CreatePropertyInput } from '@/types/property';

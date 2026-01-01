@@ -1,13 +1,64 @@
 // =============================================================================
-// AUTH CONTEXT - Module 5: Event Pass Pro
+// AUTH CONTEXT - Module 5: EventPass Pro
 // =============================================================================
-// Contexto global de autenticación que gestiona el estado del usuario.
 //
-// ## Conceptos Clave
-// 1. **Context API**: Permite compartir estado (user) en toda la app sin "prop drilling".
-// 2. **onAuthStateChanged**: Listener de tiempo real de Firebase que detecta login/logout.
-// 3. **Sync de Cookies**: Sincronizamos el token de Firebase con cookies para futuras
-//    integraciones con Middleware de Next.js.
+// ## Educational Note: Gestión de Estado de Autenticación
+//
+// Este archivo implementa el patrón Context + Provider para compartir el estado
+// de autenticación en toda la aplicación. Es el patrón estándar para auth en React.
+//
+// ### ¿Por qué Context API para Autenticación?
+//
+// ```
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │                    PROBLEMA: Prop Drilling                              │
+// ├─────────────────────────────────────────────────────────────────────────┤
+// │                                                                          │
+// │   Sin Context:                       Con Context:                        │
+// │   ─────────────────                  ─────────────────                   │
+// │                                                                          │
+// │   App (user) ──┐                     AuthProvider (user)                 │
+// │       │        │                           │                             │
+// │   Layout(user) │ Cada componente       Cualquier componente              │
+// │       │        │ debe recibir y        puede acceder al user             │
+// │   Header(user) │ pasar "user" como     con useAuth() directamente        │
+// │       │        │ prop manualmente                                        │
+// │   UserMenu(user)                         const { user } = useAuth();     │
+// │                                                                          │
+// │   ✗ Tedioso    ✗ Frágil              ✓ Limpio    ✓ Escalable           │
+// │                                                                          │
+// └─────────────────────────────────────────────────────────────────────────┘
+// ```
+//
+// ### Flujo de onAuthStateChanged
+//
+// Firebase usa un patrón "Observable" para notificar cambios de auth:
+//
+// ```
+// ┌──────────────────────────────────────────────────────────────┐
+// │                                                              │
+// │   1. Usuario hace login ──────────────────────────────────┐  │
+// │                                                           │  │
+// │   2. Firebase detecta cambio ─────────────────────────────┤  │
+// │                                                           │  │
+// │   3. onAuthStateChanged callback se ejecuta ──────────────┤  │
+// │          │                                                │  │
+// │          ▼                                                │  │
+// │   4. setUser(user) actualiza Context ─────────────────────┤  │
+// │          │                                                │  │
+// │          ▼                                                │  │
+// │   5. Todos los componentes con useAuth() se re-renderizan │  │
+// │                                                           │  │
+// └───────────────────────────────────────────────────────────┘  │
+// ```
+//
+// ### Cookie Sync para Server-Side Auth
+//
+// Guardamos el token en una cookie para que:
+// 1. Next.js Middleware pueda verificar la sesión
+// 2. Server Components puedan acceder al usuario
+// 3. API Routes puedan autenticar requests
+//
 // =============================================================================
 
 'use client';

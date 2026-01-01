@@ -102,19 +102,32 @@ const events = await adminDb
 ### 4. Gemini AI Integration
 
 ```typescript
-// lib/gemini.ts
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// lib/gemini.ts - Configuración del cliente
+import { GoogleGenAI } from '@google/genai';
 
-export async function generateEventDescription(input) {
-  const client = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
-  const model = client.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
-  const prompt = `Genera una descripción para: ${input.title}...`;
-  const result = await model.generateContent(prompt);
+export const getGeminiClient = () => genAI;
 
-  return result.response.text();
+// actions/aiActions.ts - Server Action para generar contenido
+'use server';
+import { getGeminiClient } from '@/lib/gemini';
+
+export async function generateEventDetailsAction(title: string) {
+  const client = getGeminiClient();
+
+  const result = await client.models.generateContent({
+    model: 'gemini-3-flash-preview',  // Modelo optimizado para velocidad
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json' }
+  });
+
+  return JSON.parse(result.text);
 }
 ```
+
+> **Nota:** Usamos Server Actions en lugar de API Routes para la integración con Gemini.
+> Esto simplifica el código y mantiene las API keys seguras en el servidor.
 
 ---
 
@@ -132,28 +145,28 @@ module5-event-pass-pro/
     │   ├── page.tsx
     │   ├── auth/                # Página de login/registro
     │   │   └── page.tsx
-    │   ├── api/                 # API Routes
-    │   │   └── generate-description/
-    │   │       └── route.ts     # Endpoint para Gemini
     │   └── events/
     │       └── ...
+    ├── actions/                 # Server Actions
+    │   ├── eventActions.ts      # CRUD de eventos
+    │   └── aiActions.ts         # Generación con Gemini AI
     ├── contexts/                # Contextos de React
     │   └── AuthContext.tsx      # Estado de autenticación
     ├── components/
     │   ├── auth/                # Componentes de autenticación
     │   │   ├── LoginForm.tsx
     │   │   └── UserMenu.tsx
-    │   ├── ai/                  # Componentes de IA
-    │   │   └── GenerateDescriptionButton.tsx
+    │   ├── EventForm.tsx        # Formulario con botón "Generar con IA"
     │   └── ui/
-    │       ├── avatar.tsx       # Nuevo
-    │       └── dropdown-menu.tsx # Nuevo
+    │       ├── avatar.tsx
+    │       └── dropdown-menu.tsx
     ├── lib/
     │   ├── firebase/            # Configuración Firebase
-    │   │   ├── config.ts        # Cliente
-    │   │   ├── admin.ts         # Admin (servidor)
-    │   │   └── firestore.ts     # Data layer
-    │   ├── gemini.ts            # Integración Gemini AI
+    │   │   ├── config.ts        # Cliente (browser)
+    │   │   ├── admin.ts         # Admin SDK (servidor)
+    │   │   ├── firestore.ts     # Data layer
+    │   │   └── storage.ts       # Firebase Storage
+    │   ├── gemini.ts            # Cliente Gemini AI
     │   └── utils.ts
     └── types/
         └── event.ts             # + organizerId
@@ -168,7 +181,7 @@ module5-event-pass-pro/
 │                    ARQUITECTURA EVENTPASS PRO                            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│   BROWSER                                                                │
+│   BROWSER (Client Components)                                            │
 │   ┌─────────────────────────────────────────────────────────────────┐   │
 │   │  AuthProvider (React Context)                                   │   │
 │   │  ┌─────────────────────────────────────────────────────────┐   │   │
@@ -177,26 +190,36 @@ module5-event-pass-pro/
 │   │  │  - signInWithPopup(GoogleProvider)                      │   │   │
 │   │  │  - onAuthStateChanged()                                 │   │   │
 │   │  └─────────────────────────────────────────────────────────┘   │   │
+│   │                                                                 │   │
+│   │  EventForm.tsx ─────────────────────────────────────────────┐   │   │
+│   │  │  Botón "Generar con IA" → Llama Server Actions          │   │   │
+│   │  └──────────────────────────────────────────────────────────┘   │   │
 │   └───────────────────────────────┬─────────────────────────────────┘   │
 │                                   │                                      │
 │   ════════════════════════════════│══════════════════════════════════   │
-│                                   │                                      │
+│                                   │ Server Actions                       │
 │   SERVER                          ▼                                      │
 │   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │  ┌─────────────────┐    ┌─────────────────┐                    │   │
-│   │  │  Server Actions │    │   API Routes    │                    │   │
-│   │  │  CRUD eventos   │    │  /api/generate  │                    │   │
-│   │  └────────┬────────┘    └────────┬────────┘                    │   │
-│   │           │                      │                              │   │
-│   │           ▼                      ▼                              │   │
+│   │  ┌─────────────────────────────────────────────────────────┐   │   │
+│   │  │               Server Actions (actions/)                  │   │   │
+│   │  │  ┌─────────────────┐    ┌─────────────────┐             │   │   │
+│   │  │  │ eventActions.ts │    │  aiActions.ts   │             │   │   │
+│   │  │  │  CRUD eventos   │    │ Gemini AI gen   │             │   │   │
+│   │  │  └────────┬────────┘    └────────┬────────┘             │   │   │
+│   │  └───────────┼──────────────────────┼───────────────────────┘   │   │
+│   │              ▼                      ▼                            │   │
 │   │  ┌─────────────────┐    ┌─────────────────┐                    │   │
 │   │  │ Firebase Admin  │    │   Gemini AI     │                    │   │
-│   │  │  (Firestore)    │    │  (Generation)   │                    │   │
+│   │  │  (Firestore)    │    │  (@google/genai)│                    │   │
 │   │  └─────────────────┘    └─────────────────┘                    │   │
 │   └─────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+> **Server Actions vs API Routes:** Este proyecto usa Server Actions para todas las
+> operaciones del servidor (CRUD + AI). Esto simplifica el código al eliminar la
+> necesidad de crear endpoints REST manuales.
 
 ---
 
@@ -474,10 +497,17 @@ import { adminDb } from '@/lib/firebase/admin';
 
 ```typescript
 // ❌ INCORRECTO: Llamar a Gemini desde el cliente
-// Expone la API key
+// Expone la API key en el navegador
+const genAI = new GoogleGenAI({ apiKey: 'sk-...' }); // ¡PELIGRO!
 
-// ✅ CORRECTO: Usar una API Route
-// Cliente → /api/generate-description → Gemini
+// ✅ CORRECTO: Usar Server Actions
+// El cliente llama a la Server Action, que ejecuta en el servidor
+// La API key NUNCA llega al navegador
+'use server';
+export async function generateEventDetailsAction(title: string) {
+  const client = getGeminiClient(); // API key solo en servidor
+  // ...
+}
 ```
 
 ---

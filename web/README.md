@@ -4,15 +4,15 @@ Bienvenido al track de Web del curso **Aplicaciones Web Avanzadas**. Aquí apren
 
 ## Tecnologías Principales
 
-*   **Lenguaje**: TypeScript 5.7.3
-*   **Frontend**: React 19, Next.js 16.1, Vite 6.3
-*   **Backend**: Node.js, Express, Prisma ORM
-*   **UI/Styling**: HTML5, Tailwind CSS 4.1, Shadcn UI
-*   **Forms**: Zod 3.24, React Hook Form
+*   **Lenguaje**: TypeScript 5.9.3
+*   **Frontend**: React 19.2.1, Next.js 16.1.1, Vite 7.3.0
+*   **Backend**: Node.js, Express 5.2.1, Prisma 7.2.0
+*   **UI/Styling**: HTML5, Tailwind CSS 4.1.8, Shadcn UI
+*   **Forms**: Zod 4.1.9, React Hook Form 7.54.2
 *   **Base de Datos**: SQLite (local), Firebase Firestore (nube)
-*   **Autenticación**: Firebase Auth
-*   **IA Generativa**: Google Gemini
-*   **Deploy**: Vercel, Google Cloud Run
+*   **Autenticación**: Firebase Auth 12.7.0
+*   **IA Generativa**: Google Gemini (@google/genai 1.34.0)
+*   **Deploy**: Vercel
 
 > **Actualizado Diciembre 2025**: Tailwind CSS v4 con configuración CSS-first
 
@@ -20,16 +20,16 @@ Bienvenido al track de Web del curso **Aplicaciones Web Avanzadas**. Aquí apren
 
 | Dependencia | M1 | M2 | M3 | M4 | M5 |
 |-------------|----|----|----|----|-----|
-| TypeScript | 5.7.3 | 5.7.3 | 5.7.2 | 5.7.3 | 5.7.3 |
-| Tailwind CSS | 4.1.8 | 4.1.8 | - | 4.1.8 | 4.1.8 |
-| Vite | 6.3.5 | 6.3.5 | - | - | - |
-| Next.js | - | - | - | 15.1.3 | 15.1.3 |
-| React | - | 19.0.0 | - | 19.0.0 | 19.0.0 |
-| Express | - | - | 4.21.2 | - | - |
-| Prisma | - | - | 6.1.0 | - | - |
-| Zod | - | 3.24.1 | 3.24.1 | 3.24.1 | 3.24.1 |
-| Firebase | - | - | - | - | 11.1.0 |
-| Gemini AI | - | - | - | - | 0.21.0 |
+| TypeScript | 5.9.3 | 5.9.3 | 5.9.3 | 5.9.3 | 5.9.3 |
+| Tailwind CSS | 4.1.8 | 4.1.8 | 4.1.8 | 4.1.8 | 4.1.8 |
+| Vite | 7.3.0 | 7.3.0 | 7.3.0 | - | - |
+| Next.js | - | - | - | 16.1.1 | 16.1.1 |
+| React | - | 19.2.1 | 19.2.1 | 19.2.1 | 19.2.1 |
+| Express | - | - | 5.2.1 | - | - |
+| Prisma | - | - | 7.2.0 | - | - |
+| Zod | - | 4.1.9 | 4.1.9 | 4.1.9 | 4.1.9 |
+| Firebase | - | - | - | - | 12.7.0 |
+| @google/genai | - | - | - | - | 1.34.0 |
 
 ## Módulos del Curso
 

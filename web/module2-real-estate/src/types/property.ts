@@ -1,15 +1,55 @@
 // =============================================================================
-// TIPOS DE DATOS - Real Estate React
+// TIPOS DE DATOS Y VALIDACIÓN - Module 2: Real Estate React
 // =============================================================================
-// Definición de tipos para las propiedades inmobiliarias.
 //
-// ## Esquemas Zod vs Interfaces TypeScript
-// - TypeScript: Validación en tiempo de compilación
-// - Zod: Validación en tiempo de ejecución
+// ## Educational Note: La Doble Capa de Validación
 //
-// Usamos AMBOS para máxima seguridad:
-// 1. Zod valida datos de entrada (formularios, API)
-// 2. TypeScript valida el código que escribimos
+// Este archivo demuestra un patrón fundamental del desarrollo moderno:
+// combinar validación en tiempo de compilación (TypeScript) con validación
+// en tiempo de ejecución (Zod).
+//
+// ### ¿Por qué necesitamos AMBAS validaciones?
+//
+// ```
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │              VALIDACIÓN: Compilación vs Ejecución                       │
+// ├─────────────────────────────────────────────────────────────────────────┤
+// │                                                                          │
+// │   TYPESCRIPT (Compilación)              ZOD (Ejecución)                  │
+// │   ─────────────────────────────────────────────────────────────────────  │
+// │                                                                          │
+// │   ✓ Errores al escribir código         ✓ Errores con datos reales       │
+// │   ✓ Autocompletado inteligente         ✓ Mensajes de error al usuario   │
+// │   ✓ Refactoring seguro                 ✓ Validación de formularios      │
+// │   ✓ Documentación integrada            ✓ Sanitización de datos          │
+// │                                                                          │
+// │   ✗ No existe en runtime               ✗ Overhead de rendimiento        │
+// │   ✗ No puede validar datos externos    ✗ Código adicional               │
+// │                                                                          │
+// └─────────────────────────────────────────────────────────────────────────┘
+// ```
+//
+// ### Ejemplo del problema que resolvemos:
+//
+// ```typescript
+// // TypeScript NO puede ayudar aquí - el dato viene del usuario
+// const userInput = JSON.parse(localStorage.getItem('property'));
+// // ¿userInput.price es number? ¿Está entre 0 y 100M? TypeScript no sabe.
+//
+// // Con Zod, validamos en runtime:
+// const result = createPropertySchema.safeParse(userInput);
+// if (result.success) {
+//   // Ahora TypeScript SABE que result.data tiene el tipo correcto
+// }
+// ```
+//
+// ### Patrón "as const" para Enums Type-Safe
+//
+// Usamos `as const` en lugar de `enum` de TypeScript porque:
+// 1. Los valores son strings literales (mejor para forms y localStorage)
+// 2. El array es iterable (podemos hacer .map() para renderizar opciones)
+// 3. El tipo se infiere automáticamente con `typeof ARRAY[number]`
+//
 // =============================================================================
 
 import { z } from 'zod';
