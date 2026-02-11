@@ -100,6 +100,8 @@ sealed interface AmiiboUiState {
      * @param isRetryable True si tiene sentido reintentar (ej: error de red)
      * @param cachedAmiibos Datos en cache (si existen) para mostrar junto al error
      */
+
+    // TENEMOS QUE MODIFICAR EL CLASE ERROR
     data class Error(
         val message: String,
         val errorType: ErrorType = ErrorType.UNKNOWN,
