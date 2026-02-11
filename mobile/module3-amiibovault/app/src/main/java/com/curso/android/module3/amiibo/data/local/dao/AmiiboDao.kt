@@ -171,6 +171,14 @@ interface AmiiboDao {
     @Query("SELECT COUNT(*) FROM amiibos")
     suspend fun getTotalCount(): Int
 
+
+    // añadimos la consulta SQL
+    // --- PARTE 2: CONSULTA DE BÚSQUEDA ---
+    @Query("SELECT * FROM amiibos WHERE name LIKE '%' || :query || '%' ORDER BY name ASC")
+    fun searchAmiibos(query: String): Flow<List<AmiiboEntity>>
+
+
+
     // =========================================================================
     // OPERACIONES PARA DETALLE DE AMIIBO
     // =========================================================================

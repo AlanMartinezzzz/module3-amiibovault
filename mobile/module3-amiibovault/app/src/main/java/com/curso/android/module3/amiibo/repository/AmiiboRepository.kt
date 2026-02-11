@@ -269,6 +269,14 @@ class AmiiboRepository(
     fun getAmiiboCount(): Flow<Int> {
         return amiiboDao.getCount()
     }
+
+
+    /**
+     * Expone la búsqueda del DAO al ViewModel.
+     */
+    fun searchAmiibos(query: String): Flow<List<AmiiboEntity>> = amiiboDao.searchAmiibos(query)
+
+
 }
 
 /**

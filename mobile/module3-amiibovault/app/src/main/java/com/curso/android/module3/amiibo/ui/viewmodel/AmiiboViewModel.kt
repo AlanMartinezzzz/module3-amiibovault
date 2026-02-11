@@ -6,10 +6,14 @@ import com.curso.android.module3.amiibo.data.local.entity.AmiiboEntity
 import com.curso.android.module3.amiibo.domain.error.AmiiboError
 import com.curso.android.module3.amiibo.domain.error.ErrorType
 import com.curso.android.module3.amiibo.repository.AmiiboRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -196,6 +200,43 @@ class AmiiboViewModel(
     /** Indica si está cargando la siguiente página */
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+
+    // =========================================================================
+    // ✅ PARTE 2: BÚSQUEDA LOCAL (AÑADIR AQUÍ)
+    // =========================================================================
+
+    /** Estado para el texto de búsqueda */
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    /** * Flujo reactivo que decide qué lista mostrar:
+     * Si searchQuery está vacío -> muestra observeAmiibos()
+     * Si tiene texto -> muestra searchAmiibos(query)
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val amiibosResult: StateFlow<List<AmiiboEntity>> = _searchQuery
+        .debounce(300) // Espera a que el usuario deje de escribir
+        .distinctUntilChanged() // No busca si el texto es el mismo
+        .flatMapLatest { query ->
+            if (query.isBlank()) {
+                repository.observeAmiibos()
+            } else {
+                repository.searchAmiibos(query)
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
+    /** Función para que la UI actualice el texto de búsqueda */
+    fun onSearchQueryChanged(newQuery: String) {
+        _searchQuery.value = newQuery
+    }
+
+    // =========================================================================
 
     /**
      * =========================================================================
