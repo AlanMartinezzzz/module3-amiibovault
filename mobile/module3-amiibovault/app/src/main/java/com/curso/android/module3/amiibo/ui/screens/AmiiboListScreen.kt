@@ -208,6 +208,7 @@ fun AmiiboListScreen(
                 placeholder = { Text("Buscar amiibo...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
+                    // si hay texto escrito "x " para borrar todo
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
                             Icon(Icons.Default.Clear, contentDescription = "Limpiar")
@@ -216,7 +217,7 @@ fun AmiiboListScreen(
                 }
             )
 
-            // MANEJO DE ESTADOS (Ya no llevan padding extra)
+            // MANEJO DE ESTADOS (parte 1)
             when (val state = uiState) {
                 is AmiiboUiState.Loading -> {
                     LoadingContent(modifier = Modifier.fillMaxSize())
@@ -258,7 +259,10 @@ fun AmiiboListScreen(
                             )
 
                             LaunchedEffect(state.message) {
-                                snackbarHostState.showSnackbar(state.message)
+                                snackbarHostState.showSnackbar(
+                                    message = state.message, // Dice: "No hay internet" o "Error de servidor"
+                                    actionLabel = "Reintentar" // Le da una opción al usuario para no quedarse trabado
+                                )
                             }
                             SnackbarHost(
                                 hostState = snackbarHostState,
