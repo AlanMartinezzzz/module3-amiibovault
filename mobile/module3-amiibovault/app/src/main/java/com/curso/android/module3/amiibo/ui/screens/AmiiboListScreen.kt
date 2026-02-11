@@ -41,6 +41,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -304,28 +306,41 @@ fun AmiiboListScreen(
              * - Solo ve "Reintentar" cuando tiene sentido
              */
             is AmiiboUiState.Error -> {
+                // Definimos el host del snackbar para el mensaje
+                val snackbarHostState = remember { SnackbarHostState() }
+
                 if (state.cachedAmiibos.isNotEmpty()) {
-                    // Hay datos en cache: mostrar datos + mensaje de error
-                    Column(modifier = Modifier.padding(paddingValues)) {
-                        ErrorBanner(
-                            message = state.message,
-                            errorType = state.errorType,
-                            isRetryable = state.isRetryable,
-                            onRetry = { viewModel.refreshAmiibos() }
-                        )
+                    // --- PARTE 1: GRACEFUL OFFLINE MODE ---
+                    // Si hay datos previos, no mostramos pantalla de error.
+                    // Mostramos la lista normal (AmiiboGrid) pero con los datos cacheados.
+                    Box(modifier = Modifier.fillMaxSize()) {
                         AmiiboGrid(
-                            amiibos = state.cachedAmiibos,
+                            amiibos = state.cachedAmiibos, // Usamos la caché
                             onAmiiboClick = onAmiiboClick,
-                            hasMorePages = false,
+                            hasMorePages = false, // En error offline desactivamos paginación
                             isLoadingMore = false,
                             paginationError = null,
                             onLoadMore = {},
                             onRetryLoadMore = {},
                             modifier = Modifier.fillMaxSize()
                         )
+
+                        // Avisamos al usuario con un Snackbar
+                        LaunchedEffect(state.message) {
+                            snackbarHostState.showSnackbar(
+                                message = state.message,
+                                actionLabel = "Reintentar"
+                            )
+                        }
+
+                        // Host del snackbar posicionado abajo
+                        SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        )
                     }
                 } else {
-                    // Sin cache: pantalla de error completa
+                    // Si NO hay caché (primer inicio sin internet), mostramos el error grande
                     ErrorContent(
                         message = state.message,
                         errorType = state.errorType,
