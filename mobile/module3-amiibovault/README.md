@@ -1,3 +1,14 @@
+BREVE VIDEO APP
+https://youtu.be/g5UvC7LLEtQ
+
+
+
+
+Alan Martinez - 24000683
+
+
+
+
 # Amiibo Vault
 
 Una aplicación Android educativa que implementa el patrón **Offline-First** para mostrar una colección de figuras Amiibo.
